@@ -7,6 +7,7 @@ import { WorldInfoPanel } from "../components/WorldInfoPanel";
 import { useFormat } from "../format";
 import { useLoad } from "../hooks";
 import { useI18n } from "../i18n";
+import { jobError, JobProgress, useWorldJob } from "../jobs";
 
 type Dialog =
   | { type: "save"; force?: boolean }
@@ -31,9 +32,17 @@ export function WorldDetail({ id, onBack }: { id: string; onBack: () => void }) 
     info.reload();
     snaps.reload();
   };
-  const run = async (fn: () => Promise<string>) => {
+  const { job, track } = useWorldJob(id, (j) => {
+    refresh();
+    if (j.auto) return; // automatic backups report in the Activity tab
+    if (j.state === "failed") setNotice({ ok: false, text: errorText(jobError(j)) });
+    else if (j.kind === "backup" && j.snapshot) setNotice({ ok: true, text: t("detail.saved", { name: title(j.snapshot) }) });
+    else if (j.path) setNotice({ ok: true, text: t("detail.loadedInto", { path: j.path }) });
+  });
+  const run = async (fn: () => Promise<string | void>) => {
     try {
-      setNotice({ ok: true, text: await fn() });
+      const text = await fn();
+      setNotice(text ? { ok: true, text } : undefined);
       setDialog(undefined);
       refresh();
     } catch (e) {
@@ -67,7 +76,7 @@ export function WorldDetail({ id, onBack }: { id: string; onBack: () => void }) 
           <div className="muted small mono">{world?.path ?? ref?.path}</div>
         </div>
         {world && (
-          <button className="primary" onClick={() => setDialog({ type: "save" })}>
+          <button className="primary" disabled={!!job} onClick={() => setDialog({ type: "save" })}>
             {t("detail.saveNow")}
           </button>
         )}
@@ -78,6 +87,7 @@ export function WorldDetail({ id, onBack }: { id: string; onBack: () => void }) 
           {notice.text}
         </div>
       )}
+      {job && <JobProgress job={job} />}
       {info.error && !missing && <div className="callout error">{errorText(info.error)}</div>}
 
       <div className="columns">
@@ -103,8 +113,10 @@ export function WorldDetail({ id, onBack }: { id: string; onBack: () => void }) 
                   </div>
                 </a>
                 <div className="snapshot-actions">
-                  <button onClick={() => setDialog({ type: "load", snap: s })}>{t("common.load")}</button>
-                  <button className="ghost" title={t("common.delete")} aria-label={t("common.delete")} onClick={() => setDialog({ type: "delete", snap: s })}>
+                  <button disabled={!!job} onClick={() => setDialog({ type: "load", snap: s })}>
+                    {t("common.load")}
+                  </button>
+                  <button className="ghost" disabled={!!job} title={t("common.delete")} aria-label={t("common.delete")} onClick={() => setDialog({ type: "delete", snap: s })}>
                     ✕
                   </button>
                 </div>
@@ -124,8 +136,7 @@ export function WorldDetail({ id, onBack }: { id: string; onBack: () => void }) 
           onClose={() => setDialog(undefined)}
           onSave={(label, note) =>
             run(async () => {
-              const s = await api.save(id, label, note, dialog.force);
-              return t("detail.saved", { name: title(s) });
+              track(await api.save(id, label, note, dialog.force));
             })
           }
         />
@@ -138,8 +149,7 @@ export function WorldDetail({ id, onBack }: { id: string; onBack: () => void }) 
           onClose={() => setDialog(undefined)}
           onLoad={(mode) =>
             run(async () => {
-              const r = await api.restore(id, dialog.snap.id, mode);
-              return t("detail.loadedInto", { path: r.path });
+              track(await api.restore(id, dialog.snap.id, mode));
             })
           }
         />

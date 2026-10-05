@@ -94,6 +94,14 @@ export const en = {
   "load.restoring": "Restoring…",
   "load.restore": "Restore",
 
+  "job.backup": "Saving the world…",
+  "job.safety": "Saving the current state first…",
+  "job.restore": "Loading the save…",
+  "job.progress": "{done} of {total}",
+  "job.leaveHint": "You can leave this page: it keeps running in the background.",
+  "job.chipBackup": "Saving {world}",
+  "job.chipRestore": "Loading {world}",
+
   "info.world": "World",
   "info.lastPlayed": "Last played",
   "info.difficulty": "Difficulty",
@@ -206,6 +214,7 @@ export const en = {
 
   "err.in_use": "The world is open in the game. Exit to the title screen and try again.",
   "err.unchanged": "The world has not changed since the last save.",
+  "err.busy": "This world is being saved or loaded right now. Wait until it finishes.",
   "err.not_found": "Not found. It may have been moved or deleted.",
   "err.unauthorized": "Access denied. Open Worldkeeper from the link it prints on start.",
   "err.engine_unknown": "Unknown storage format.",

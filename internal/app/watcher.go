@@ -47,13 +47,14 @@ func (a *App) watchPass(open, pending map[string]bool, first bool) {
 			continue
 		}
 
-		_, err = a.backup(w, BackupOptions{Kind: snapshot.KindAuto})
+		_, err = a.backupJob(w, BackupOptions{Kind: snapshot.KindAuto})
 		switch {
 		case err == nil, errors.Is(err, ErrUnchanged):
 			delete(pending, w.ID)
 		case errors.Is(err, ErrInUse):
 			// Reopened between the check and the backup; next close will trigger again.
 		default:
+			// Includes ErrBusy: a manual save or restore is running, try again next pass.
 			pending[w.ID] = true
 		}
 	}

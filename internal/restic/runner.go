@@ -103,6 +103,17 @@ func atLeast(v string, min [3]int) bool {
 // Run executes restic with args in dir and returns stdout. Exit codes are
 // mapped to the package errors; stderr is included in other errors.
 func (r *Runner) Run(ctx context.Context, dir string, args ...string) ([]byte, error) {
+	return r.RunLines(ctx, dir, nil, args...)
+}
+
+// progressFPS limits how often restic prints --json status lines while
+// they are read live; its default of 60 per second is far more than a
+// progress bar needs.
+const progressFPS = "4"
+
+// RunLines is Run that also passes each stdout line to onLine as soon as
+// restic prints it, e.g. the --json status messages. onLine may be nil.
+func (r *Runner) RunLines(ctx context.Context, dir string, onLine func([]byte), args ...string) ([]byte, error) {
 	if r.Repo == "" {
 		return nil, errors.New("restic repository is not configured")
 	}
@@ -116,6 +127,10 @@ func (r *Runner) Run(ctx context.Context, dir string, args ...string) ([]byte, e
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
+	if onLine != nil {
+		cmd.Env = append(cmd.Env, "RESTIC_PROGRESS_FPS="+progressFPS)
+		cmd.Stdout = &lineWriter{buf: &stdout, onLine: onLine}
+	}
 
 	err = cmd.Run()
 	var exit *exec.ExitError
@@ -193,3 +208,25 @@ type exitErr struct {
 
 func (e *exitErr) Error() string { return "restic: " + e.msg }
 func (e *exitErr) Unwrap() error { return e.base }
+
+// lineWriter keeps everything written to it in buf and calls onLine for
+// each complete line.
+type lineWriter struct {
+	buf     *bytes.Buffer
+	onLine  func([]byte)
+	pending []byte
+}
+
+func (w *lineWriter) Write(p []byte) (int, error) {
+	w.buf.Write(p)
+	w.pending = append(w.pending, p...)
+	for {
+		i := bytes.IndexByte(w.pending, '\n')
+		if i < 0 {
+			break
+		}
+		w.onLine(w.pending[:i])
+		w.pending = w.pending[i+1:]
+	}
+	return len(p), nil
+}

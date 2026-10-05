@@ -105,13 +105,42 @@ func (s *Store) Init(ctx context.Context) error {
 // NAS that went offline mid-backup. `restic unlock` only removes locks
 // whose process is gone, so it is safe while another backup runs.
 func (s *Store) run(ctx context.Context, dir string, args ...string) ([]byte, error) {
-	out, err := s.r.Run(ctx, dir, args...)
+	return s.runLines(ctx, dir, nil, args...)
+}
+
+func (s *Store) runLines(ctx context.Context, dir string, onLine func([]byte), args ...string) ([]byte, error) {
+	out, err := s.r.RunLines(ctx, dir, onLine, args...)
 	if errors.Is(err, ErrLocked) {
 		if _, uerr := s.r.Run(ctx, "", "unlock"); uerr == nil {
-			out, err = s.r.Run(ctx, dir, args...)
+			out, err = s.r.RunLines(ctx, dir, onLine, args...)
 		}
 	}
 	return out, err
+}
+
+// statusLines turns restic's --json status messages into progress reports.
+// Backups count bytes_done, restores bytes_restored. A restore's summary
+// has the same fields, so it reports the final state even when restic
+// finished before printing any status.
+func statusLines(progress snapshot.Progress) func([]byte) {
+	if progress == nil {
+		return nil
+	}
+	return func(line []byte) {
+		var st struct {
+			Type          string `json:"message_type"`
+			TotalBytes    int64  `json:"total_bytes"`
+			BytesDone     int64  `json:"bytes_done"`
+			BytesRestored int64  `json:"bytes_restored"`
+		}
+		if json.Unmarshal(line, &st) != nil {
+			return
+		}
+		if st.Type != "status" && (st.Type != "summary" || st.TotalBytes == 0) {
+			return
+		}
+		progress(st.BytesDone+st.BytesRestored, st.TotalBytes)
+	}
 }
 
 func (s *Store) invalidate() {
@@ -161,7 +190,8 @@ func (s *Store) Create(ref snapshot.WorldRef, worldDir string, m snapshot.Meta) 
 	}
 	// Backing up "." from inside the world puts its files at the snapshot
 	// root, so a restore unpacks them straight into the target folder.
-	out, err := s.run(ctx, worldDir, append(args, ".")...)
+	m.Progress.Report(0, 0)
+	out, err := s.runLines(ctx, worldDir, statusLines(m.Progress), append(args, ".")...)
 	if err != nil && !errors.Is(err, ErrIncomplete) {
 		return snapshot.Snapshot{}, err
 	}
@@ -170,6 +200,7 @@ func (s *Store) Create(ref snapshot.WorldRef, worldDir string, m snapshot.Meta) 
 	if perr != nil {
 		return snapshot.Snapshot{}, perr
 	}
+	m.Progress.Report(sum.TotalBytesProcessed, sum.TotalBytesProcessed)
 	snap := snapshot.Snapshot{
 		ID:          sum.SnapshotID,
 		Kind:        m.Kind,
@@ -334,7 +365,7 @@ func (s *Store) find(worldID, snapID string) (snapshot.Snapshot, error) {
 	return snapshot.Snapshot{}, snapshot.ErrNotFound
 }
 
-func (s *Store) Extract(worldID, snapID, dest string) error {
+func (s *Store) Extract(worldID, snapID, dest string, progress snapshot.Progress) error {
 	if _, err := s.find(worldID, snapID); err != nil {
 		return err
 	}
@@ -345,7 +376,8 @@ func (s *Store) Extract(worldID, snapID, dest string) error {
 	if err := os.RemoveAll(tmp); err != nil {
 		return err
 	}
-	if _, err := s.run(context.Background(), "", "restore", snapID, "--target", tmp); err != nil {
+	progress.Report(0, 0)
+	if _, err := s.runLines(context.Background(), "", statusLines(progress), "restore", "--json", snapID, "--target", tmp); err != nil {
 		os.RemoveAll(tmp)
 		return err
 	}

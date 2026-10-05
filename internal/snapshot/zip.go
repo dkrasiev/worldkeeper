@@ -14,10 +14,10 @@ import (
 // must not be restored over a running instance's lock.
 var skipFiles = map[string]bool{"session.lock": true}
 
-// writeZip archives the contents of dir (without the folder itself) to w.
-func writeZip(w io.Writer, dir string) error {
-	zw := zip.NewWriter(w)
-	err := filepath.WalkDir(dir, func(path string, e fs.DirEntry, err error) error {
+// walkWorld calls fn for every directory and regular file of dir that is
+// archived, with its path relative to dir.
+func walkWorld(dir string, fn func(path, rel string, e fs.DirEntry) error) error {
+	return filepath.WalkDir(dir, func(path string, e fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -31,6 +31,30 @@ func writeZip(w io.Writer, dir string) error {
 		if !e.IsDir() && !e.Type().IsRegular() {
 			return nil // symlinks, devices
 		}
+		return fn(path, rel, e)
+	})
+}
+
+// writeZip archives the contents of dir (without the folder itself) to w.
+func writeZip(w io.Writer, dir string, progress Progress) error {
+	// A quick first pass sizes the world, so progress can show a percentage.
+	var total int64
+	if progress != nil {
+		err := walkWorld(dir, func(_, _ string, e fs.DirEntry) error {
+			if fi, err := e.Info(); err == nil && !e.IsDir() {
+				total += fi.Size()
+			}
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+		progress(0, total)
+	}
+	counter := &progressWriter{progress: progress, total: total}
+
+	zw := zip.NewWriter(w)
+	err := walkWorld(dir, func(path, rel string, e fs.DirEntry) error {
 		fi, err := e.Info()
 		if err != nil {
 			return err
@@ -60,7 +84,8 @@ func writeZip(w io.Writer, dir string) error {
 			return err
 		}
 		defer src.Close()
-		_, err = io.Copy(dst, src)
+		counter.w = dst
+		_, err = io.Copy(counter, src)
 		return err
 	})
 	if err != nil {
@@ -71,12 +96,19 @@ func writeZip(w io.Writer, dir string) error {
 }
 
 // extractZip unpacks archive into dest, which must already exist.
-func extractZip(archive, dest string) error {
+func extractZip(archive, dest string, progress Progress) error {
 	zr, err := zip.OpenReader(archive)
 	if err != nil {
 		return err
 	}
 	defer zr.Close()
+
+	var total int64
+	for _, f := range zr.File {
+		total += int64(f.UncompressedSize64)
+	}
+	progress.Report(0, total)
+	counter := &progressWriter{progress: progress, total: total}
 
 	for _, f := range zr.File {
 		name := strings.TrimSuffix(f.Name, "/")
@@ -96,14 +128,14 @@ func extractZip(archive, dest string) error {
 		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
 			return err
 		}
-		if err := extractFile(f, target); err != nil {
+		if err := extractFile(f, target, counter); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func extractFile(f *zip.File, target string) error {
+func extractFile(f *zip.File, target string, counter *progressWriter) error {
 	src, err := f.Open()
 	if err != nil {
 		return err
@@ -113,7 +145,8 @@ func extractFile(f *zip.File, target string) error {
 	if err != nil {
 		return err
 	}
-	if _, err := io.Copy(dst, src); err != nil {
+	counter.w = dst
+	if _, err := io.Copy(counter, src); err != nil {
 		dst.Close()
 		return err
 	}
@@ -121,4 +154,19 @@ func extractFile(f *zip.File, target string) error {
 		return err
 	}
 	return os.Chtimes(target, f.Modified, f.Modified)
+}
+
+// progressWriter forwards writes to w and reports the running byte count.
+type progressWriter struct {
+	w        io.Writer
+	progress Progress
+	done     int64
+	total    int64
+}
+
+func (p *progressWriter) Write(b []byte) (int, error) {
+	n, err := p.w.Write(b)
+	p.done += int64(n)
+	p.progress.Report(p.done, p.total)
+	return n, err
 }

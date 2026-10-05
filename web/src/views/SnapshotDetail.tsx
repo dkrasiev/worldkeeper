@@ -7,6 +7,7 @@ import { WorldInfoPanel } from "../components/WorldInfoPanel";
 import { useFormat } from "../format";
 import { useLoad } from "../hooks";
 import { useI18n } from "../i18n";
+import { jobError, JobProgress, useWorldJob } from "../jobs";
 
 // SnapshotDetail shows what a save contains, read from the backup itself,
 // so it works even when the world is gone from this computer.
@@ -24,6 +25,12 @@ export function SnapshotDetail({ id, snapId, onBack }: { id: string; snapId: str
   const snap = snaps.data?.snapshots?.find((s) => s.id === snapId);
   const worldName = world.data?.name ?? snaps.data?.world.name ?? id;
 
+  const { job, track } = useWorldJob(id, (j) => {
+    world.reload();
+    if (j.kind !== "restore" || j.auto) return;
+    if (j.state === "failed") setNotice({ ok: false, text: errorText(jobError(j)) });
+    else if (j.path) setNotice({ ok: true, text: t("detail.loadedInto", { path: j.path }) });
+  });
   const run = async (fn: () => Promise<string | void>) => {
     try {
       const text = await fn();
@@ -69,10 +76,12 @@ export function SnapshotDetail({ id, snapId, onBack }: { id: string; snapId: str
           {snap.note && <p className="snapshot-note">{snap.note}</p>}
         </div>
         <div className="header-actions">
-          <button className="primary" onClick={() => setDialog("load")}>
+          <button className="primary" disabled={!!job} onClick={() => setDialog("load")}>
             {t("common.load")}
           </button>
-          <button onClick={() => setDialog("delete")}>{t("common.delete")}</button>
+          <button disabled={!!job} onClick={() => setDialog("delete")}>
+            {t("common.delete")}
+          </button>
         </div>
       </header>
 
@@ -81,6 +90,8 @@ export function SnapshotDetail({ id, snapId, onBack }: { id: string; snapId: str
           {notice.text}
         </div>
       )}
+
+      {job && <JobProgress job={job} />}
 
       {info.error ? (
         <div className="callout error">{errorText(info.error)}</div>
@@ -105,8 +116,7 @@ export function SnapshotDetail({ id, snapId, onBack }: { id: string; snapId: str
           onClose={() => setDialog(undefined)}
           onLoad={(mode) =>
             run(async () => {
-              const r = await api.restore(id, snapId, mode);
-              return t("detail.loadedInto", { path: r.path });
+              track(await api.restore(id, snapId, mode));
             })
           }
         />

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"io"
 	"log/slog"
 	"net/http"
@@ -9,6 +10,7 @@ import (
 	"strings"
 	"testing"
 	"testing/fstest"
+	"time"
 
 	"github.com/dkrasiev/worldkeeper/internal/app"
 	"github.com/dkrasiev/worldkeeper/internal/config"
@@ -100,8 +102,27 @@ func TestSnapshotFlow(t *testing.T) {
 	host := "127.0.0.1:25599"
 
 	rec := do(h, "POST", "/api/worlds/minecraft--w/snapshots", host, token, `{"label":"before dragon"}`)
-	if rec.Code != 200 || !strings.Contains(rec.Body.String(), "before dragon") {
+	if rec.Code != 202 {
 		t.Fatalf("create: %d %s", rec.Code, rec.Body)
+	}
+	job := waitJob(t, h, token, rec)
+	if job.State != app.JobDone || job.Snapshot == nil || job.Snapshot.Label != "before dragon" {
+		t.Fatalf("backup job = %+v", job)
+	}
+
+	rec = do(h, "POST", "/api/worlds/minecraft--w/snapshots/"+job.Snapshot.ID+"/restore", host, token, `{"mode":"copy"}`)
+	if rec.Code != 202 {
+		t.Fatalf("restore: %d %s", rec.Code, rec.Body)
+	}
+	if job := waitJob(t, h, token, rec); job.State != app.JobDone || !strings.Contains(job.Path, "(restored ") || job.Done != job.Total || job.Total == 0 {
+		t.Fatalf("restore job = %+v", job)
+	}
+	// Mistakes the user must see right away are not deferred to the job.
+	if rec := do(h, "POST", "/api/worlds/minecraft--w/snapshots/nope/restore", host, token, `{"mode":"copy"}`); rec.Code != 404 {
+		t.Errorf("restore unknown snapshot: %d %s", rec.Code, rec.Body)
+	}
+	if rec := do(h, "POST", "/api/worlds/nope/snapshots", host, token, `{}`); rec.Code != 404 {
+		t.Errorf("save unknown world: %d %s", rec.Code, rec.Body)
 	}
 	rec = do(h, "GET", "/api/worlds/minecraft--w", host, token, "")
 	if rec.Code != 200 || !strings.Contains(rec.Body.String(), `"gameVersion":"1.21.4"`) {
@@ -121,4 +142,24 @@ func TestSnapshotFlow(t *testing.T) {
 	if rec := do(h, "PUT", "/api/config", host, token, `{"engine":"zip","storageDir":"relative","keepAuto":5,"pollSeconds":15}`); rec.Code != 400 || !strings.Contains(rec.Body.String(), `"key":"storage_not_absolute"`) {
 		t.Errorf("relative storage dir: %d %s", rec.Code, rec.Body)
 	}
+}
+
+// waitJob polls /api/jobs until the job started by rec has finished.
+func waitJob(t *testing.T, h http.Handler, token string, rec *httptest.ResponseRecorder) app.Job {
+	t.Helper()
+	var started app.Job
+	if err := json.Unmarshal(rec.Body.Bytes(), &started); err != nil || started.ID == "" {
+		t.Fatalf("start response %s: %v", rec.Body, err)
+	}
+	for deadline := time.Now().Add(10 * time.Second); time.Now().Before(deadline); time.Sleep(10 * time.Millisecond) {
+		var jobs []app.Job
+		json.Unmarshal(do(h, "GET", "/api/jobs", "127.0.0.1", token, "").Body.Bytes(), &jobs)
+		for _, j := range jobs {
+			if j.ID == started.ID && j.State != app.JobRunning {
+				return j
+			}
+		}
+	}
+	t.Fatalf("job %s did not finish", started.ID)
+	return app.Job{}
 }
