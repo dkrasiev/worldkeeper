@@ -322,13 +322,30 @@ func (a *App) Restore(worldID, snapID string, mode RestoreMode) (string, error) 
 	case err != nil:
 		return "", err
 	case mode == RestoreCopy:
-		stamp := time.Now().Format("2006-01-02 15-04")
-		dest := uniquePath(filepath.Join(w.SavesDir, w.Folder+" (restored "+stamp+")"))
-		return dest, a.extract(ix, snapID, dest)
+		now := time.Now()
+		dest := uniquePath(filepath.Join(w.SavesDir, w.Folder+" (restored "+now.Format("2006-01-02 15-04")+")"))
+		if err := a.extract(ix, snapID, dest); err != nil {
+			return "", err
+		}
+		a.renameCopy(dest, now)
+		return dest, nil
 	case mode == RestoreReplace:
 		return w.Path, a.replace(w, ix, snapID)
 	default:
 		return "", fmt.Errorf("unknown restore mode %q", mode)
+	}
+}
+
+// renameCopy gives a restored copy its own name in the game's world list;
+// otherwise it shows up twice under the original name. A failure only
+// costs the nicer name, so it is logged rather than failing the restore.
+func (a *App) renameCopy(dir string, at time.Time) {
+	sum, err := worldinfo.ReadSummary(dir)
+	if err == nil {
+		err = worldinfo.SetLevelName(dir, sum.Name+" (restored "+at.Format("2006-01-02 15:04")+")")
+	}
+	if err != nil {
+		a.Log.Warn("cannot rename restored copy", "path", dir, "err", err)
 	}
 }
 
