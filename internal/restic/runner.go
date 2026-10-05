@@ -47,7 +47,7 @@ func (r *Runner) command(ctx context.Context, args ...string) *exec.Cmd {
 
 func (r *Runner) binary() string {
 	if r.Binary == "" {
-		return "restic"
+		return Locate()
 	}
 	return r.Binary
 }
