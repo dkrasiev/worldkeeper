@@ -7,10 +7,12 @@ before:
 # Runs on a macOS runner (see .github/workflows/release.yml): the macOS menu
 # bar icon needs cgo, which only a Mac can build. Windows and Linux builds
 # are pure Go.
-# Dev builds (goreleaser release --snapshot, see dev-build.yml) are
-# versioned after the next patch release, e.g. 0.1.1-dev.abc1234.
+# Dev builds (goreleaser build --snapshot, see dev-build.yml) are versioned
+# after the next minor release, e.g. 0.2.0-dev.abc1234 after v0.1.0: main
+# works towards the next minor release, and hotfix releases (v0.1.1, made
+# from a release/v0.1 branch) never share a number with a dev build.
 snapshot:
-  version_template: "{{ incpatch .Version }}-dev.{{ .ShortCommit }}"
+  version_template: "{{ incminor .Version }}-dev.{{ .ShortCommit }}"
 
 builds:
   - id: darwin
