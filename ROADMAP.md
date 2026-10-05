@@ -13,6 +13,7 @@ Make what already shipped trustworthy before adding more.
 - [#10](https://github.com/dkrasiev/worldkeeper/issues/10) "Load as a new world" keeps the original world name
 - [#11](https://github.com/dkrasiev/worldkeeper/issues/11) Open-source housekeeping
 - [#44](https://github.com/dkrasiev/worldkeeper/issues/44) Publish to winget
+- [#55](https://github.com/dkrasiev/worldkeeper/issues/55) Rename and delete worlds
 
 ## [v0.3](https://github.com/dkrasiev/worldkeeper/milestone/2): convenience
 
