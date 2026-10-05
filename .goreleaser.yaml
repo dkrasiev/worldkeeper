@@ -48,8 +48,25 @@ archives:
 checksum:
   name_template: checksums.txt
 
+# Release notes are built from the squashed pull request titles, which use
+# Conventional Commits ("feat: …", "fix: …"). Changes that users do not see
+# (docs, tests, CI, chores) are left out.
 changelog:
   use: github
+  sort: asc
+  filters:
+    exclude:
+      - '^(docs|test|ci|chore|style|refactor)(\(.+\))?!?:'
+      - "^Merge "
+  groups:
+    - title: New features
+      regexp: '^feat(\(.+\))?!?:'
+      order: 0
+    - title: Bug fixes
+      regexp: '^(fix|perf)(\(.+\))?!?:'
+      order: 1
+    - title: Other changes
+      order: 999
 
 # Opens a pull request with the new version's manifests in
 # microsoft/winget-pkgs, from the fork dkrasiev/winget-pkgs. Needs the
