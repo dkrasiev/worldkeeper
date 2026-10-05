@@ -2,6 +2,7 @@ package snapshot
 
 import (
 	"archive/zip"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"testing"
@@ -41,7 +42,7 @@ func TestCreateAndExtract(t *testing.T) {
 	}
 
 	dest := filepath.Join(t.TempDir(), "restored")
-	if err := s.Extract(ref.ID, snap.ID, dest); err != nil {
+	if err := s.Extract(ref.ID, snap.ID, dest, nil); err != nil {
 		t.Fatal(err)
 	}
 	for _, f := range []string{"level.dat", "icon.png", "region/r.0.0.mca", "DIM-1/region/r.0.0.mca"} {
@@ -54,7 +55,7 @@ func TestCreateAndExtract(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(dest, "session.lock")); !os.IsNotExist(err) {
 		t.Error("session.lock must not be archived")
 	}
-	if err := s.Extract(ref.ID, snap.ID, dest); err == nil {
+	if err := s.Extract(ref.ID, snap.ID, dest, nil); err == nil {
 		t.Error("extract over existing folder must fail")
 	}
 }
@@ -129,7 +130,7 @@ func TestExtractRejectsZipSlip(t *testing.T) {
 	f.Close()
 
 	dest := t.TempDir()
-	if err := extractZip(archive, dest); err == nil {
+	if err := extractZip(archive, dest, nil); err == nil {
 		t.Fatal("zip slip not rejected")
 	}
 	if _, err := os.Stat(filepath.Join(filepath.Dir(dest), "escaped.txt")); !os.IsNotExist(err) {
@@ -162,4 +163,45 @@ func TestOpenReadsWorldInfoFromZip(t *testing.T) {
 	if _, _, err := s.Open("w", "nope"); err != ErrNotFound {
 		t.Errorf("unknown snapshot: %v", err)
 	}
+}
+
+func TestProgress(t *testing.T) {
+	s, _ := newTestStore(t)
+	world := testworld.Create(t, t.TempDir(), "w", testworld.Options{})
+	var size int64
+	walkWorld(world, func(_, _ string, e fs.DirEntry) error {
+		if fi, _ := e.Info(); !e.IsDir() {
+			size += fi.Size()
+		}
+		return nil
+	})
+
+	check := func(name string) (Progress, func()) {
+		var calls int
+		var last, total int64
+		p := func(done, tot int64) {
+			if done < last || tot != size {
+				t.Errorf("%s: progress %d/%d after %d, want total %d", name, done, tot, last, size)
+			}
+			calls, last, total = calls+1, done, tot
+		}
+		return p, func() {
+			if calls < 2 || last != total {
+				t.Errorf("%s: %d calls, ended at %d/%d", name, calls, last, total)
+			}
+		}
+	}
+
+	p, done := check("create")
+	snap, err := s.Create(WorldRef{ID: "w"}, world, Meta{Kind: KindManual, Progress: p})
+	if err != nil {
+		t.Fatal(err)
+	}
+	done()
+
+	p, done = check("extract")
+	if err := s.Extract("w", snap.ID, filepath.Join(t.TempDir(), "out"), p); err != nil {
+		t.Fatal(err)
+	}
+	done()
 }

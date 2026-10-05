@@ -1,6 +1,7 @@
 import { token } from "./api";
 import { LOCALES, useI18n, type Locale } from "./i18n";
 import { useHashRoute, useLoad } from "./hooks";
+import { JobsIndicator } from "./jobs";
 import { api } from "./api";
 import { Activity } from "./views/Activity";
 import { SettingsView } from "./views/Settings";
@@ -26,6 +27,7 @@ export function App() {
           <span className="brand-block" aria-hidden />
           Worldkeeper
         </a>
+        {token && <JobsIndicator />}
         <nav className="tabs">
           {tab("", "", t("nav.worlds"))}
           {tab("activity", "activity", t("nav.activity"))}

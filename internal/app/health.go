@@ -12,11 +12,11 @@ import (
 // Worlds that are open in the game or unchanged are skipped.
 func (a *App) BackupChanged() (saved, skipped, failed int) {
 	for _, w := range a.scan() {
-		_, err := a.backup(w, BackupOptions{Kind: snapshot.KindAuto})
+		_, err := a.backupJob(w, BackupOptions{Kind: snapshot.KindAuto})
 		switch {
 		case err == nil:
 			saved++
-		case errors.Is(err, ErrUnchanged), errors.Is(err, ErrInUse):
+		case errors.Is(err, ErrUnchanged), errors.Is(err, ErrInUse), errors.Is(err, ErrBusy):
 			skipped++
 		default:
 			failed++

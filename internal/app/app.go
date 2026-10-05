@@ -47,6 +47,7 @@ type App struct {
 
 	snapCache  snapshotCache
 	lastBackup lastBackupCache
+	jobs       jobs
 }
 
 func New(cfg *config.Store, sec secrets.Store, env discovery.Env, log *slog.Logger) *App {
@@ -216,16 +217,36 @@ type BackupOptions struct {
 	// Force backs up a world that is open in the game. The copy may be
 	// inconsistent because the game writes region files while running.
 	Force bool
+	// Progress, if set, is told how far the backup is.
+	Progress snapshot.Progress
 }
 
-// Backup snapshots a local world. Automatic backups are skipped when the
-// world has not been saved since the last snapshot.
+// Backup snapshots a local world and waits for it; StartBackup is the
+// background variant. Automatic backups are skipped when the world has not
+// been saved since the last snapshot.
 func (a *App) Backup(id string, o BackupOptions) (snapshot.Snapshot, error) {
 	w, err := a.find(id)
 	if err != nil {
 		return snapshot.Snapshot{}, err
 	}
-	return a.backup(w, o)
+	return a.backupJob(w, o)
+}
+
+// displayName is the world's name for jobs and messages.
+func (a *App) displayName(w discovery.World) string {
+	if s, err := worldinfo.ReadSummary(w.Path); err == nil && s.Name != "" {
+		return s.Name
+	}
+	return w.Folder
+}
+
+func (a *App) checkInUse(w discovery.World, force bool) error {
+	if inUse, err := lock.InUse(w.Path); err != nil {
+		return err
+	} else if inUse && !force {
+		return ErrInUse
+	}
+	return nil
 }
 
 // backup records every real failure in the activity feed; "in use" and
@@ -239,10 +260,8 @@ func (a *App) backup(w discovery.World, o BackupOptions) (snapshot.Snapshot, err
 }
 
 func (a *App) doBackup(w discovery.World, o BackupOptions) (snapshot.Snapshot, error) {
-	if inUse, err := lock.InUse(w.Path); err != nil {
+	if err := a.checkInUse(w, o.Force); err != nil {
 		return snapshot.Snapshot{}, err
-	} else if inUse && !o.Force {
-		return snapshot.Snapshot{}, ErrInUse
 	}
 	sum, err := worldinfo.ReadSummary(w.Path)
 	if err != nil {
@@ -271,6 +290,7 @@ func (a *App) doBackup(w discovery.World, o BackupOptions) (snapshot.Snapshot, e
 	snap, err := store.Create(ref, w.Path, snapshot.Meta{
 		Kind: o.Kind, Label: o.Label, Note: o.Note,
 		GameVersion: sum.GameVersion, LastPlayed: sum.LastPlayed,
+		Progress: o.Progress,
 	})
 	if err != nil {
 		return snapshot.Snapshot{}, err
@@ -296,10 +316,25 @@ const (
 	RestoreCopy RestoreMode = "copy"
 )
 
-// Restore loads a snapshot and returns the folder it was written to.
-// Worlds without a local folder are restored to their original path when
-// possible, otherwise into the default saves folder.
+// Restore loads a snapshot, waits for it and returns the folder it was
+// written to; StartRestore is the background variant. Worlds without a
+// local folder are restored to their original path when possible,
+// otherwise into the default saves folder.
 func (a *App) Restore(worldID, snapID string, mode RestoreMode) (string, error) {
+	ix, err := a.Snapshots().Get(worldID)
+	if err != nil {
+		return "", err
+	}
+	j, err := a.jobs.start(JobRestore, worldID, a.restoreName(ix), false)
+	if err != nil {
+		return "", err
+	}
+	dest, err := a.restore(worldID, snapID, mode, j)
+	a.jobs.finish(j, err, func(j *Job) { j.Path = dest })
+	return dest, err
+}
+
+func (a *App) restore(worldID, snapID string, mode RestoreMode, j *Job) (string, error) {
 	ix, err := a.Snapshots().Get(worldID)
 	if err != nil {
 		return "", err
@@ -319,23 +354,43 @@ func (a *App) Restore(worldID, snapID string, mode RestoreMode) (string, error) 
 			}
 			dest = uniquePath(filepath.Join(saves, folder))
 		}
-		return dest, a.extract(ix, snapID, dest)
+		return dest, a.extract(ix, snapID, dest, a.jobs.progress(j, PhaseRestore))
 	case err != nil:
 		return "", err
 	case mode == RestoreCopy:
-		stamp := time.Now().Format("2006-01-02 15-04")
-		dest := uniquePath(filepath.Join(w.SavesDir, w.Folder+" (restored "+stamp+")"))
-		return dest, a.extract(ix, snapID, dest)
+		now := time.Now()
+		dest := uniquePath(filepath.Join(w.SavesDir, w.Folder+" (restored "+now.Format("2006-01-02 15-04")+")"))
+		if err := a.extract(ix, snapID, dest, a.jobs.progress(j, PhaseRestore)); err != nil {
+			return "", err
+		}
+		a.renameCopy(dest, now)
+		return dest, nil
 	case mode == RestoreReplace:
-		return w.Path, a.replace(w, ix, snapID)
+		return w.Path, a.replace(w, ix, snapID, j)
 	default:
 		return "", fmt.Errorf("unknown restore mode %q", mode)
 	}
 }
 
-func (a *App) replace(w discovery.World, ix snapshot.Index, snapID string) error {
+// renameCopy gives a restored copy its own name in the game's world list;
+// otherwise it shows up twice under the original name. A failure only
+// costs the nicer name, so it is logged rather than failing the restore.
+func (a *App) renameCopy(dir string, at time.Time) {
+	sum, err := worldinfo.ReadSummary(dir)
+	if err == nil {
+		err = worldinfo.SetLevelName(dir, sum.Name+" (restored "+at.Format("2006-01-02 15:04")+")")
+	}
+	if err != nil {
+		a.Log.Warn("cannot rename restored copy", "path", dir, "err", err)
+	}
+}
+
+func (a *App) replace(w discovery.World, ix snapshot.Index, snapID string, j *Job) error {
 	// Save the current state first so a restore can always be undone.
-	_, err := a.backup(w, BackupOptions{Kind: snapshot.KindPreRestore, Label: describe(ix, snapID)})
+	_, err := a.backup(w, BackupOptions{
+		Kind: snapshot.KindPreRestore, Label: describe(ix, snapID),
+		Progress: a.jobs.progress(j, PhaseSafety),
+	})
 	if err != nil {
 		return fmt.Errorf("safety snapshot before restore: %w", err)
 	}
@@ -347,7 +402,7 @@ func (a *App) replace(w discovery.World, ix snapshot.Index, snapID string) error
 	if err := os.Rename(w.Path, old); err != nil {
 		return fmt.Errorf("move current world aside: %w", err)
 	}
-	if err := a.extract(ix, snapID, w.Path); err != nil {
+	if err := a.extract(ix, snapID, w.Path, a.jobs.progress(j, PhaseRestore)); err != nil {
 		if rbErr := os.Rename(old, w.Path); rbErr != nil {
 			return fmt.Errorf("%w; rollback failed, your world is at %s: %v", err, old, rbErr)
 		}
@@ -356,8 +411,8 @@ func (a *App) replace(w discovery.World, ix snapshot.Index, snapID string) error
 	return os.RemoveAll(old)
 }
 
-func (a *App) extract(ix snapshot.Index, snapID, dest string) error {
-	if err := a.Snapshots().Extract(ix.World.ID, snapID, dest); err != nil {
+func (a *App) extract(ix snapshot.Index, snapID, dest string, progress snapshot.Progress) error {
+	if err := a.Snapshots().Extract(ix.World.ID, snapID, dest, progress); err != nil {
 		a.event(EventError, ix.World.ID, ix.World.Name, CodeRestoreFailed, map[string]string{"error": err.Error()}, "Restore failed: "+err.Error())
 		return err
 	}

@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/dkrasiev/worldkeeper/internal/config"
@@ -15,6 +16,7 @@ import (
 	"github.com/dkrasiev/worldkeeper/internal/secrets"
 	"github.com/dkrasiev/worldkeeper/internal/snapshot"
 	"github.com/dkrasiev/worldkeeper/internal/testworld"
+	"github.com/dkrasiev/worldkeeper/internal/worldinfo"
 )
 
 type fixture struct {
@@ -47,6 +49,9 @@ func TestAutoBackupSkipsUnchanged(t *testing.T) {
 	}
 	if _, err := f.app.Backup("minecraft--w", BackupOptions{Kind: snapshot.KindAuto}); !errors.Is(err, ErrUnchanged) {
 		t.Fatalf("second auto backup err = %v, want ErrUnchanged", err)
+	}
+	if jobs := f.app.Jobs(); len(jobs) != 1 || jobs[0].State != JobDone {
+		t.Errorf("jobs = %+v, want only the backup that ran", jobs)
 	}
 	// Manual saves are always taken.
 	if _, err := f.app.Backup("minecraft--w", BackupOptions{Kind: snapshot.KindManual, Label: "x"}); err != nil {
@@ -103,6 +108,15 @@ func TestRestoreReplaceKeepsSafetySnapshot(t *testing.T) {
 	}
 	if b, _ := os.ReadFile(filepath.Join(copyDest, "region", "r.0.0.mca")); string(b) != "creeper was here" {
 		t.Errorf("safety snapshot content = %q", b)
+	}
+	// The copy must not show up in the game under the original's name.
+	orig, _ := worldinfo.ReadSummary(dir)
+	cp, err := worldinfo.ReadSummary(copyDest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(cp.Name, orig.Name+" (restored ") || cp.Name == orig.Name {
+		t.Errorf("copy name = %q, original %q", cp.Name, orig.Name)
 	}
 }
 

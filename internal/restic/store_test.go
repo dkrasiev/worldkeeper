@@ -1,6 +1,7 @@
 package restic
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"io/fs"
@@ -70,7 +71,7 @@ func TestCreateGetExtract(t *testing.T) {
 	}
 
 	dest := filepath.Join(t.TempDir(), "restored")
-	if err := s.Extract(ref.ID, snap.ID, dest); err != nil {
+	if err := s.Extract(ref.ID, snap.ID, dest, nil); err != nil {
 		t.Fatal(err)
 	}
 	want, _ := os.ReadFile(filepath.Join(world, "region", "r.0.0.mca"))
@@ -80,7 +81,7 @@ func TestCreateGetExtract(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(dest, "session.lock")); !os.IsNotExist(err) {
 		t.Error("session.lock must be excluded")
 	}
-	if err := s.Extract(ref.ID, "nope", filepath.Join(t.TempDir(), "x")); !errors.Is(err, snapshot.ErrNotFound) {
+	if err := s.Extract(ref.ID, "nope", filepath.Join(t.TempDir(), "x"), nil); !errors.Is(err, snapshot.ErrNotFound) {
 		t.Errorf("unknown snapshot err = %v", err)
 	}
 }
@@ -192,5 +193,63 @@ func TestOpenListsAllAndRestoresOnlyMetadata(t *testing.T) {
 	closer.Close()
 	if _, err := os.Stat(tmp); !os.IsNotExist(err) {
 		t.Error("temp dir not removed")
+	}
+}
+
+func TestProgress(t *testing.T) {
+	s := newRepo(t)
+	world := testworld.Create(t, t.TempDir(), "w", testworld.Options{})
+	type report struct{ done, total int64 }
+	var got []report
+	record := func(done, total int64) { got = append(got, report{done, total}) }
+
+	snap, err := s.Create(snapshot.WorldRef{ID: "w"}, world, snapshot.Meta{Kind: snapshot.KindManual, Progress: record})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if last := got[len(got)-1]; len(got) < 2 || last.total == 0 || last.done != last.total {
+		t.Errorf("backup progress = %v", got)
+	}
+
+	got = nil
+	if err := s.Extract("w", snap.ID, filepath.Join(t.TempDir(), "out"), record); err != nil {
+		t.Fatal(err)
+	}
+	if last := got[len(got)-1]; len(got) < 2 || last.total != snap.SizeBytes || last.done != last.total {
+		t.Errorf("restore progress = %v, size %d", got, snap.SizeBytes)
+	}
+}
+
+func TestStatusLines(t *testing.T) {
+	var done, total int64
+	on := statusLines(func(d, tot int64) { done, total = d, tot })
+	for _, tc := range []struct {
+		line        string
+		done, total int64
+	}{
+		{`{"message_type":"status","percent_done":0.5,"total_files":2,"files_done":1,"total_bytes":100,"bytes_done":50}`, 50, 100},
+		{`{"message_type":"status","percent_done":0.7,"total_files":2,"total_bytes":100,"bytes_restored":70}`, 70, 100},
+		{`{"message_type":"summary","snapshot_id":"x","total_bytes_processed":100}`, 70, 100}, // backup summary: ignored
+		{`not json`, 70, 100},
+		{`{"message_type":"summary","total_files":2,"files_restored":2,"total_bytes":100,"bytes_restored":100}`, 100, 100},
+	} {
+		on([]byte(tc.line))
+		if done != tc.done || total != tc.total {
+			t.Errorf("%s: got %d/%d, want %d/%d", tc.line, done, total, tc.done, tc.total)
+		}
+	}
+	if statusLines(nil) != nil {
+		t.Error("nil progress should not read lines")
+	}
+}
+
+func TestLineWriter(t *testing.T) {
+	var buf bytes.Buffer
+	var lines []string
+	w := &lineWriter{buf: &buf, onLine: func(b []byte) { lines = append(lines, string(b)) }}
+	w.Write([]byte("one\ntw"))
+	w.Write([]byte("o\nthree"))
+	if len(lines) != 2 || lines[0] != "one" || lines[1] != "two" || buf.String() != "one\ntwo\nthree" {
+		t.Errorf("lines = %q, buf = %q", lines, buf.String())
 	}
 }

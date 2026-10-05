@@ -33,6 +33,7 @@ func New(a *app.App, ui fs.FS) http.Handler {
 
 	mux.HandleFunc("GET /api/overview", s.overview)
 	mux.HandleFunc("GET /api/events", s.events)
+	mux.HandleFunc("GET /api/jobs", s.jobs)
 	mux.HandleFunc("GET /api/about", s.about)
 	mux.HandleFunc("GET /api/config", s.getConfig)
 	mux.HandleFunc("PUT /api/config", s.putConfig)
@@ -108,6 +109,10 @@ func (s *Server) events(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, s.app.Events())
 }
 
+func (s *Server) jobs(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, s.app.Jobs())
+}
+
 func (s *Server) worldInfo(w http.ResponseWriter, r *http.Request) {
 	info, err := s.app.Info(r.PathValue("id"))
 	respond(w, info, err)
@@ -143,13 +148,14 @@ func (s *Server) createSnapshot(w http.ResponseWriter, r *http.Request) {
 	if !decode(w, r, &body) {
 		return
 	}
-	snap, err := s.app.Backup(r.PathValue("id"), app.BackupOptions{
+	// The backup runs in the background; poll GET /api/jobs for progress.
+	job, err := s.app.StartBackup(r.PathValue("id"), app.BackupOptions{
 		Kind:  snapshot.KindManual,
 		Label: strings.TrimSpace(body.Label),
 		Note:  strings.TrimSpace(body.Note),
 		Force: body.Force,
 	})
-	respond(w, snap, err)
+	respondStarted(w, job, err)
 }
 
 func (s *Server) snapshotInfo(w http.ResponseWriter, r *http.Request) {
@@ -169,8 +175,17 @@ func (s *Server) restore(w http.ResponseWriter, r *http.Request) {
 	if !decode(w, r, &body) {
 		return
 	}
-	dest, err := s.app.Restore(r.PathValue("id"), r.PathValue("snap"), body.Mode)
-	respond(w, map[string]string{"path": dest}, err)
+	job, err := s.app.StartRestore(r.PathValue("id"), r.PathValue("snap"), body.Mode)
+	respondStarted(w, job, err)
+}
+
+// respondStarted answers a request that started a background job.
+func respondStarted(w http.ResponseWriter, job app.Job, err error) {
+	if err != nil {
+		respond(w, nil, err)
+		return
+	}
+	writeJSON(w, http.StatusAccepted, job)
 }
 
 func (s *Server) deleteSnapshot(w http.ResponseWriter, r *http.Request) {
@@ -351,14 +366,18 @@ func respond(w http.ResponseWriter, v any, err error) {
 		writeJSON(w, http.StatusOK, v)
 	case errors.As(err, &ae):
 		writeAPIError(w, ae)
-	case errors.Is(err, app.ErrWorldNotFound), errors.Is(err, snapshot.ErrNotFound), errors.Is(err, fs.ErrNotExist):
-		writeError(w, http.StatusNotFound, "not_found", err.Error())
-	case errors.Is(err, app.ErrInUse):
-		writeError(w, http.StatusConflict, "in_use", err.Error())
-	case errors.Is(err, app.ErrUnchanged):
-		writeError(w, http.StatusConflict, "unchanged", err.Error())
 	default:
-		writeError(w, http.StatusInternalServerError, "internal", err.Error())
+		code := app.ErrorCode(err)
+		status := map[string]int{
+			"not_found": http.StatusNotFound,
+			"in_use":    http.StatusConflict,
+			"unchanged": http.StatusConflict,
+			"busy":      http.StatusConflict,
+		}[code]
+		if status == 0 {
+			status = http.StatusInternalServerError
+		}
+		writeError(w, status, code, err.Error())
 	}
 }
 

@@ -85,6 +85,7 @@ type Meta struct {
 	Note        string
 	GameVersion string
 	LastPlayed  time.Time
+	Progress    Progress // optional
 }
 
 // Create archives worldDir. The zip is written to a temp file and renamed
@@ -110,7 +111,7 @@ func (s *Store) Create(ref WorldRef, worldDir string, m Meta) (Snapshot, error) 
 	final := filepath.Join(dir, id+".zip")
 	tmp := final + ".partial"
 
-	size, err := writeZipFile(tmp, worldDir)
+	size, err := writeZipFile(tmp, worldDir, m.Progress)
 	if err != nil {
 		os.Remove(tmp)
 		return Snapshot{}, fmt.Errorf("archive %s: %w", worldDir, err)
@@ -138,13 +139,13 @@ func (s *Store) Create(ref WorldRef, worldDir string, m Meta) (Snapshot, error) 
 	return snap, nil
 }
 
-func writeZipFile(path, worldDir string) (int64, error) {
+func writeZipFile(path, worldDir string, progress Progress) (int64, error) {
 	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644)
 	if err != nil {
 		return 0, err
 	}
 	bw := bufio.NewWriterSize(f, 1<<20)
-	if err := writeZip(bw, worldDir); err != nil {
+	if err := writeZip(bw, worldDir, progress); err != nil {
 		f.Close()
 		return 0, err
 	}
@@ -276,7 +277,7 @@ func (s *Store) All() ([]Index, error) {
 
 // Extract unpacks a snapshot into dest, which must not exist yet.
 // It extracts into a temp sibling first and renames at the end.
-func (s *Store) Extract(worldID, snapID, dest string) error {
+func (s *Store) Extract(worldID, snapID, dest string, progress Progress) error {
 	if err := checkName(worldID); err != nil {
 		return err
 	}
@@ -297,7 +298,7 @@ func (s *Store) Extract(worldID, snapID, dest string) error {
 	if err := os.MkdirAll(tmp, 0o755); err != nil {
 		return err
 	}
-	if err := extractZip(s.archivePath(worldID, snapID), tmp); err != nil {
+	if err := extractZip(s.archivePath(worldID, snapID), tmp, progress); err != nil {
 		os.RemoveAll(tmp)
 		return err
 	}
