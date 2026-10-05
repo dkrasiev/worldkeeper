@@ -35,7 +35,7 @@ While running, Worldkeeper sits in the system tray (Windows), the menu bar (macO
 
 The menu follows the system language (English or Russian). With the tray available, the browser opens on its own only on the very first start. Pass `-no-tray` to run without the icon, for example on a server. On Linux the icon needs a desktop with StatusNotifier support (KDE, or GNOME with the AppIndicator extension), and Worldkeeper runs without it when there is no D-Bus session.
 
-The log is written next to the config, in `worldkeeper.log`.
+The log is written next to the config, in `worldkeeper.log`. The Activity feed (the last 100 events) is kept there too, in `events.json`, so failures from before a restart stay visible.
 
 To start Worldkeeper with your computer:
 
