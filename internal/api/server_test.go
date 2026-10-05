@@ -109,7 +109,7 @@ func TestSnapshotFlow(t *testing.T) {
 	if rec := do(h, "GET", "/api/config", host, token, ""); rec.Code != 200 || !strings.Contains(rec.Body.String(), `"extraSavesDirs":[]`) {
 		t.Errorf("config: %d %s", rec.Code, rec.Body)
 	}
-	if rec := do(h, "PUT", "/api/config", host, token, `{"engine":"zip","storageDir":"relative","keepAuto":5,"pollSeconds":15}`); rec.Code != 400 {
-		t.Errorf("relative storage dir accepted: %d", rec.Code)
+	if rec := do(h, "PUT", "/api/config", host, token, `{"engine":"zip","storageDir":"relative","keepAuto":5,"pollSeconds":15}`); rec.Code != 400 || !strings.Contains(rec.Body.String(), `"key":"storage_not_absolute"`) {
+		t.Errorf("relative storage dir: %d %s", rec.Code, rec.Body)
 	}
 }

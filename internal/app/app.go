@@ -225,7 +225,7 @@ func (a *App) Backup(id string, o BackupOptions) (snapshot.Snapshot, error) {
 func (a *App) backup(w discovery.World, o BackupOptions) (snapshot.Snapshot, error) {
 	snap, err := a.doBackup(w, o)
 	if err != nil && !errors.Is(err, ErrInUse) && !errors.Is(err, ErrUnchanged) {
-		a.event(EventError, w.ID, w.Folder, "Backup failed: "+err.Error())
+		a.event(EventError, w.ID, w.Folder, CodeBackupFailed, map[string]string{"error": err.Error()}, "Backup failed: "+err.Error())
 	}
 	return snap, err
 }
@@ -267,7 +267,8 @@ func (a *App) doBackup(w discovery.World, o BackupOptions) (snapshot.Snapshot, e
 	if err != nil {
 		return snapshot.Snapshot{}, err
 	}
-	a.event(EventBackup, w.ID, sum.Name, fmt.Sprintf("Saved %s snapshot %s", o.Kind, snap.ID))
+	a.event(EventBackup, w.ID, sum.Name, CodeBackupSaved, map[string]string{"kind": string(o.Kind), "snapshot": snap.ID},
+		fmt.Sprintf("Saved %s snapshot %s", o.Kind, snap.ID))
 
 	if removed, err := store.Prune(w.ID, a.Config.Get().KeepAuto); err != nil {
 		a.Log.Warn("prune failed", "world", w.ID, "err", err)
@@ -325,7 +326,7 @@ func (a *App) Restore(worldID, snapID string, mode RestoreMode) (string, error) 
 
 func (a *App) replace(w discovery.World, ix snapshot.Index, snapID string) error {
 	// Save the current state first so a restore can always be undone.
-	_, err := a.backup(w, BackupOptions{Kind: snapshot.KindPreRestore, Label: "Before loading " + describe(ix, snapID)})
+	_, err := a.backup(w, BackupOptions{Kind: snapshot.KindPreRestore, Label: describe(ix, snapID)})
 	if err != nil {
 		return fmt.Errorf("safety snapshot before restore: %w", err)
 	}
@@ -348,10 +349,11 @@ func (a *App) replace(w discovery.World, ix snapshot.Index, snapID string) error
 
 func (a *App) extract(ix snapshot.Index, snapID, dest string) error {
 	if err := a.Snapshots().Extract(ix.World.ID, snapID, dest); err != nil {
-		a.event(EventError, ix.World.ID, ix.World.Name, "Restore failed: "+err.Error())
+		a.event(EventError, ix.World.ID, ix.World.Name, CodeRestoreFailed, map[string]string{"error": err.Error()}, "Restore failed: "+err.Error())
 		return err
 	}
-	a.event(EventRestore, ix.World.ID, ix.World.Name, fmt.Sprintf("Restored %s to %s", snapID, dest))
+	a.event(EventRestore, ix.World.ID, ix.World.Name, CodeRestoreDone, map[string]string{"snapshot": snapID, "path": dest},
+		fmt.Sprintf("Restored %s to %s", snapID, dest))
 	return nil
 }
 
@@ -370,14 +372,16 @@ func hasState(ix snapshot.Index, lastPlayed time.Time) bool {
 	return false
 }
 
-// describe names a snapshot for humans: its label, or when it was taken.
+// describe names the snapshot a safety snapshot was taken before: its
+// label, or when it was taken. It is stored as the safety snapshot's label
+// and stays language-neutral; the UI words it as "Before loading <label>".
 func describe(ix snapshot.Index, snapID string) string {
 	for _, s := range ix.Snapshots {
 		if s.ID == snapID {
 			if s.Label != "" {
 				return "“" + s.Label + "”"
 			}
-			return "save from " + s.CreatedAt.Local().Format("2006-01-02 15:04")
+			return s.CreatedAt.Local().Format("2006-01-02 15:04")
 		}
 	}
 	return snapID

@@ -17,13 +17,24 @@ type Event struct {
 	Kind    EventKind `json:"kind"`
 	WorldID string    `json:"worldId"`
 	World   string    `json:"world"`
-	Message string    `json:"message"`
+	Message string    `json:"message"` // English, for logs
+	// Code and Params let the UI render the event in the user's language.
+	Code   string            `json:"code"`
+	Params map[string]string `json:"params,omitempty"`
 }
 
 const maxEvents = 100
 
-func (a *App) event(kind EventKind, worldID, world, msg string) {
-	e := Event{Time: time.Now().UTC(), Kind: kind, WorldID: worldID, World: world, Message: msg}
+// Event codes, translated by the UI.
+const (
+	CodeBackupSaved   = "backup_saved"   // params: kind, snapshot
+	CodeBackupFailed  = "backup_failed"  // params: error
+	CodeRestoreDone   = "restore_done"   // params: snapshot, path
+	CodeRestoreFailed = "restore_failed" // params: error
+)
+
+func (a *App) event(kind EventKind, worldID, world, code string, params map[string]string, msg string) {
+	e := Event{Time: time.Now().UTC(), Kind: kind, WorldID: worldID, World: world, Message: msg, Code: code, Params: params}
 	a.eventsMu.Lock()
 	defer a.eventsMu.Unlock()
 

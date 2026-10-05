@@ -74,7 +74,6 @@ Each world gets its own folder, named after the launcher and the world folder. I
 
 - Java Edition only. Bedrock is not supported.
 - Switching between zip and restic does not migrate existing saves. Each storage keeps its own saves.
-- The UI is in English.
 - With zip storage, every save contains the whole world. Large worlds with many saves take a lot of space, so use restic storage or lower "Automatic saves to keep" in Settings.
 
 ## Development
@@ -95,6 +94,15 @@ cd web && pnpm dev        # open the Vite URL with ?token=<token from config.jso
 
 The config lives in your user config directory: `%APPDATA%\worldkeeper\config.json` on Windows, `~/Library/Application Support/worldkeeper/config.json` on macOS, and `~/.config/worldkeeper/config.json` on Linux.
 
+### Translations
+
+The UI is available in English and Russian. It follows the browser language, and you can switch it in the top bar. To add a language:
+
+1. Copy `web/src/i18n/ru.ts` to `web/src/i18n/<code>.ts` and translate the values. TypeScript fails the build if a key is missing.
+2. Register it in `web/src/i18n/index.tsx` (`dictionaries` and `LOCALES`).
+
+Plural entries use the CLDR categories (`one`, `few`, `many`, `other`, …) that your language needs. Dates, sizes, and durations are formatted with `Intl` for the selected language. The server sends events and errors as codes with parameters, and the UI renders them in the selected language.
+
 ### Layout
 
 | Path | What it does |
@@ -107,7 +115,7 @@ The config lives in your user config directory: `%APPDATA%\worldkeeper\config.js
 | `internal/secrets` | Keeps the restic password in the OS credential store |
 | `internal/app` | Backup and restore logic, auto-backup watcher, activity feed |
 | `internal/api` | Local HTTP API (loopback only, token protected) and the embedded UI |
-| `web/` | React + Vite UI |
+| `web/` | React + Vite UI; translations in `web/src/i18n/` |
 
 Releases are built by GoReleaser when a `v*` tag is pushed.
 
