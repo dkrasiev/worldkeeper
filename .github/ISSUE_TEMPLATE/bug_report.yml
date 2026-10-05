@@ -1,0 +1,47 @@
+name: Bug report
+description: Something does not work as expected
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report! Worldkeeper is a personal project shared as-is, so replies may take a while.
+        **Never paste your restic password or the `token` from config.json.**
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Worldkeeper version
+      description: Run `worldkeeper version`, or see the release you downloaded.
+      placeholder: 0.1.0
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options: [Windows, macOS, Linux]
+    validations:
+      required: true
+  - type: input
+    id: minecraft
+    attributes:
+      label: Minecraft version and launcher
+      placeholder: 26.3, Prism Launcher
+  - type: dropdown
+    id: storage
+    attributes:
+      label: Storage format
+      options: [Zip files, Restic repository]
+  - type: textarea
+    id: log
+    attributes:
+      label: Log excerpt
+      description: The relevant lines from `worldkeeper.log` (next to `config.json`). Check that nothing private is in it.
+      render: text

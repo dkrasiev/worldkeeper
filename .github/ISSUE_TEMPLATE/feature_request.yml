@@ -1,0 +1,17 @@
+name: Feature request
+description: An idea for Worldkeeper
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: Check the [roadmap](https://github.com/dkrasiev/worldkeeper/milestones) first; maybe it is already planned.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would it solve?
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: How could it work?
