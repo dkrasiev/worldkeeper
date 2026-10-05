@@ -28,7 +28,13 @@ const (
 	KindAuto       Kind = "auto"
 	KindManual     Kind = "manual"
 	KindPreRestore Kind = "pre-restore" // taken automatically before a restore overwrites a world
+	KindPreDelete  Kind = "pre-delete"  // taken automatically before a world is deleted
 )
+
+// Rotates reports whether rotation may delete snapshots of this kind. The
+// last state of a deleted world and manual saves are kept until the user
+// deletes them.
+func (k Kind) Rotates() bool { return k == KindAuto || k == KindPreRestore }
 
 // WorldRef remembers where a world came from, so its snapshots stay
 // usable after the original folder is gone (e.g. after an OS reinstall).
@@ -178,7 +184,7 @@ func uniqueID(ix Index, base string) string {
 }
 
 // Prune deletes the oldest automatic snapshots beyond keep.
-// Manual snapshots are never deleted by rotation.
+// Only kinds that rotate count; manual saves are never deleted by rotation.
 func (s *Store) Prune(worldID string, keep int) ([]string, error) {
 	if err := checkName(worldID); err != nil {
 		return nil, err
@@ -194,7 +200,7 @@ func (s *Store) Prune(worldID string, keep int) ([]string, error) {
 	var removed []string
 	autos := 0
 	for _, snap := range ix.Snapshots {
-		if snap.Kind != KindManual {
+		if snap.Kind.Rotates() {
 			autos++
 			if autos > keep {
 				removed = append(removed, snap.ID)

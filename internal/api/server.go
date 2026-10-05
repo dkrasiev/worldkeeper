@@ -13,6 +13,7 @@ import (
 	"runtime"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/dkrasiev/worldkeeper/internal/app"
 	"github.com/dkrasiev/worldkeeper/internal/config"
@@ -40,6 +41,8 @@ func New(a *app.App, ui fs.FS) http.Handler {
 	mux.HandleFunc("POST /api/restic/check", s.resticCheck)
 	mux.HandleFunc("POST /api/restic/init", s.resticInit)
 	mux.HandleFunc("GET /api/worlds/{id}", s.worldInfo)
+	mux.HandleFunc("PATCH /api/worlds/{id}", s.renameWorld)
+	mux.HandleFunc("DELETE /api/worlds/{id}", s.deleteWorld)
 	mux.HandleFunc("GET /api/worlds/{id}/icon", s.icon)
 	mux.HandleFunc("GET /api/worlds/{id}/advancements", s.advancements)
 	mux.HandleFunc("GET /api/worlds/{id}/snapshots", s.snapshots)
@@ -116,6 +119,32 @@ func (s *Server) jobs(w http.ResponseWriter, r *http.Request) {
 func (s *Server) worldInfo(w http.ResponseWriter, r *http.Request) {
 	info, err := s.app.Info(r.PathValue("id"))
 	respond(w, info, err)
+}
+
+func (s *Server) renameWorld(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Name string `json:"name"`
+	}
+	if !decode(w, r, &body) {
+		return
+	}
+	name := strings.TrimSpace(body.Name)
+	if name == "" {
+		writeAPIError(w, badRequest("name_required", app.ErrNameRequired.Error()))
+		return
+	}
+	if strings.ContainsFunc(name, unicode.IsControl) || len(name) > 200 {
+		writeAPIError(w, badRequest("name_invalid", "the name is too long or has control characters"))
+		return
+	}
+	err := s.app.Rename(r.PathValue("id"), name)
+	respond(w, map[string]string{"name": name}, err)
+}
+
+// deleteWorld starts a background job; see App.StartDelete.
+func (s *Server) deleteWorld(w http.ResponseWriter, r *http.Request) {
+	job, err := s.app.StartDelete(r.PathValue("id"))
+	respondStarted(w, job, err)
 }
 
 func (s *Server) advancements(w http.ResponseWriter, r *http.Request) {

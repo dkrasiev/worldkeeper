@@ -52,12 +52,13 @@ export function App() {
           <div className="callout error">{t("app.noToken")}</div>
         ) : page === "world" && arg && sub === "save" && subArg ? (
           <SnapshotDetail
+            key={`${arg}/${subArg}`}
             id={arg}
             snapId={subArg}
             onBack={() => go(`/world/${encodeURIComponent(arg)}`)}
           />
         ) : page === "world" && arg ? (
-          <WorldDetail id={arg} onBack={() => go("/")} />
+          <WorldDetail key={arg} id={arg} onBack={() => go("/")} />
         ) : page === "activity" ? (
           <Activity />
         ) : page === "settings" ? (
