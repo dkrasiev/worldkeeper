@@ -119,9 +119,31 @@ Plural entries use the CLDR categories (`one`, `few`, `many`, `other`, …) that
 | `internal/api` | Local HTTP API (loopback only, token protected) and the embedded UI |
 | `web/` | React + Vite UI; translations in `web/src/i18n/` |
 
-Releases are built by GoReleaser when a `v*` tag is pushed.
+**Dev builds.** Every pull request and every push to `main` gets a Windows x64 test build (`worldkeeper.exe`, versioned like `0.2.0-dev.abc1234`, after the next minor release), made once per commit. To get one, open the *Dev build* run for that commit in the [Actions tab](https://github.com/dkrasiev/worldkeeper/actions/workflows/dev-build.yml) and download it from *Artifacts*. You need to be signed in to GitHub, and artifacts are kept for 14 days. Dev builds are for testing and are not releases.
 
-**Dev builds.** Every pull request and every push to `main` gets a Windows x64 test build (`worldkeeper.exe`, versioned like `0.1.1-dev.abc1234`), made once per commit. To get one, open the *Dev build* run for that commit in the [Actions tab](https://github.com/dkrasiev/worldkeeper/actions/workflows/dev-build.yml) and download it from *Artifacts*. You need to be signed in to GitHub, and artifacts are kept for 14 days. Dev builds are for testing and are not releases.
+### Releasing
+
+Pushing a `v*` tag builds the release: GoReleaser makes the archives and the GitHub release, and opens the winget pull request if the `WINGET_TOKEN` secret is set. The tag can be on any commit.
+
+**Regular release** from `main`:
+
+```bash
+git switch main && git pull
+git tag -a v0.2.0 -m "v0.2.0"
+git push origin v0.2.0
+```
+
+**Hotfix** for a past release, when `main` already has unreleased work. Merge the fix into `main` first, then:
+
+```bash
+git switch -c release/v0.1 v0.1.0   # or reuse release/v0.1 from an earlier hotfix
+git cherry-pick <fix-commit>
+git push -u origin release/v0.1     # CI runs on release/* branches
+git tag -a v0.1.1 -m "v0.1.1"
+git push origin v0.1.1
+```
+
+Keep `release/v0.1` for later hotfixes (`v0.1.2`, …). If `main` has nothing unreleased, tag `main` instead.
 
 ## License
 
