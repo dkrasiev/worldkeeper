@@ -1,7 +1,7 @@
 // Typed client for the worldkeeper local API. Types mirror the Go JSON.
 
 export type GameMode = "survival" | "creative" | "adventure" | "spectator" | "";
-export type SnapshotKind = "auto" | "manual" | "pre-restore";
+export type SnapshotKind = "auto" | "manual" | "pre-restore" | "pre-delete";
 export type RestoreMode = "replace" | "copy";
 
 export interface Snapshot {
@@ -122,30 +122,37 @@ export interface ResticStatus {
 
 export interface ActivityEvent {
   time: string;
-  kind: "backup" | "restore" | "error";
+  kind: "backup" | "restore" | "error" | "world";
   worldId: string;
   world: string;
   message: string; // English fallback
-  code?: "backup_saved" | "backup_failed" | "restore_done" | "restore_failed";
+  code?:
+    | "backup_saved"
+    | "backup_failed"
+    | "restore_done"
+    | "restore_failed"
+    | "world_renamed"
+    | "world_deleted"
+    | "delete_failed";
   params?: Record<string, string>;
 }
 
 /** A backup or restore running in the background (GET /api/jobs). */
 export interface Job {
   id: string;
-  kind: "backup" | "restore";
+  kind: "backup" | "restore" | "delete";
   worldId: string;
   world: string;
   auto?: boolean; // started by the automatic backup
   state: "running" | "done" | "failed";
   /** A restore over an existing world saves its current state first ("safety"). */
-  phase: "backup" | "safety" | "restore";
+  phase: "backup" | "safety" | "restore" | "delete";
   done: number; // bytes
   total: number; // bytes; 0 while unknown
   startedAt: string;
   finishedAt?: string;
   snapshot?: Snapshot; // backup result
-  path?: string; // restore destination
+  path?: string; // restore destination, or the deleted folder
   error?: { error: string; message: string };
 }
 
@@ -218,6 +225,10 @@ export const api = {
     request<Record<string, unknown>>("GET", `${w(id)}/snapshots/${encodeURIComponent(snap)}/advancements`),
   snapshots: (id: string) => request<SnapshotIndex>("GET", `${w(id)}/snapshots`),
   jobs: () => request<Job[]>("GET", "/api/jobs"),
+  /** Changes the name shown in the game; the folder keeps its name. */
+  rename: (id: string, name: string) => request<{ name: string }>("PATCH", w(id), { name }),
+  /** Starts deleting a world (saved first unless already backed up); follow it with jobs(). */
+  deleteWorld: (id: string) => request<Job>("DELETE", w(id)),
   /** Starts a backup; follow it with jobs(). */
   save: (id: string, label: string, note: string, force = false) =>
     request<Job>("POST", `${w(id)}/snapshots`, { label, note, force }),

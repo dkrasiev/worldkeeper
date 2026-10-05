@@ -12,6 +12,7 @@ export function useSnapTitle() {
   const { t } = useI18n();
   const f = useFormat();
   return (s: Snapshot) => {
+    if (s.kind === "pre-delete") return t("snap.beforeDelete");
     if (s.kind === "pre-restore" && s.label) return t("snap.before", { name: s.label.replace(legacyPrefix, "") });
     return s.label || f.dateTime(s.createdAt);
   };

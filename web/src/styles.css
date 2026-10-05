@@ -238,7 +238,8 @@ section + section {
   color: var(--accent);
   border-color: currentColor;
 }
-.badge.kind-pre-restore {
+.badge.kind-pre-restore,
+.badge.kind-pre-delete {
   color: var(--warn);
   border-color: currentColor;
 }

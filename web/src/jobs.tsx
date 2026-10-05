@@ -80,7 +80,9 @@ const percent = (job: Job) => (job.total > 0 ? Math.min(100, Math.floor((job.don
 function usePhaseLabel() {
   const { t } = useI18n();
   return (job: Job) =>
-    ({ backup: t("job.backup"), safety: t("job.safety"), restore: t("job.restore") })[job.phase];
+    ({ backup: t("job.backup"), safety: t("job.safety"), restore: t("job.restore"), delete: t("job.delete") })[
+      job.phase
+    ];
 }
 
 /** Progress of a world's running job, shown on its pages. */
@@ -105,6 +107,8 @@ export function JobProgress({ job }: { job: Job }) {
   );
 }
 
+const chipKeys = { backup: "job.chipBackup", restore: "job.chipRestore", delete: "job.chipDelete" } as const;
+
 /** Running jobs in the top bar, so they stay visible on every page. */
 export function JobsIndicator() {
   const { t } = useI18n();
@@ -118,7 +122,7 @@ export function JobsIndicator() {
         return (
           <a key={j.id} className="job-chip" href={`#/world/${encodeURIComponent(j.worldId)}`}>
             <span className="spinner" aria-hidden />
-            {t(j.kind === "backup" ? "job.chipBackup" : "job.chipRestore", { world: j.world })}
+            {t(chipKeys[j.kind], { world: j.world })}
             {pct !== undefined && <span className="muted">{pct}%</span>}
           </a>
         );

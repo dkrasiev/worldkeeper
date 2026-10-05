@@ -11,6 +11,8 @@ import { jobError, JobProgress, useWorldJob } from "../jobs";
 
 type Dialog =
   | { type: "save"; force?: boolean }
+  | { type: "rename" }
+  | { type: "deleteWorld" }
   | { type: "load"; snap: Snapshot }
   | { type: "delete"; snap: Snapshot };
 
@@ -24,7 +26,7 @@ export function WorldDetail({ id, onBack }: { id: string; onBack: () => void }) 
   const [notice, setNotice] = useState<{ ok: boolean; text: string }>();
 
   const missing = info.error instanceof ApiError && info.error.status === 404;
-  const world = info.data;
+  const world = missing ? undefined : info.data; // a deleted world keeps its last data in info
   const ref = snaps.data?.world;
   const list = snaps.data?.snapshots ?? [];
 
@@ -37,6 +39,7 @@ export function WorldDetail({ id, onBack }: { id: string; onBack: () => void }) 
     if (j.auto) return; // automatic backups report in the Activity tab
     if (j.state === "failed") setNotice({ ok: false, text: errorText(jobError(j)) });
     else if (j.kind === "backup" && j.snapshot) setNotice({ ok: true, text: t("detail.saved", { name: title(j.snapshot) }) });
+    else if (j.kind === "delete") setNotice({ ok: true, text: t("deleteWorld.done") });
     else if (j.path) setNotice({ ok: true, text: t("detail.loadedInto", { path: j.path }) });
   });
   const run = async (fn: () => Promise<string | void>) => {
@@ -76,9 +79,17 @@ export function WorldDetail({ id, onBack }: { id: string; onBack: () => void }) 
           <div className="muted small mono">{world?.path ?? ref?.path}</div>
         </div>
         {world && (
-          <button className="primary" disabled={!!job} onClick={() => setDialog({ type: "save" })}>
-            {t("detail.saveNow")}
-          </button>
+          <div className="header-actions">
+            <button className="primary" disabled={!!job} onClick={() => setDialog({ type: "save" })}>
+              {t("detail.saveNow")}
+            </button>
+            <button disabled={!!job} onClick={() => setDialog({ type: "rename" })}>
+              {t("world.rename")}
+            </button>
+            <button disabled={!!job} onClick={() => setDialog({ type: "deleteWorld" })}>
+              {t("world.delete")}
+            </button>
+          </div>
         )}
       </header>
 
@@ -140,6 +151,42 @@ export function WorldDetail({ id, onBack }: { id: string; onBack: () => void }) 
             })
           }
         />
+      )}
+      {dialog?.type === "rename" && world && (
+        <RenameDialog
+          name={world.name}
+          inUse={world.inUse}
+          onClose={() => setDialog(undefined)}
+          onRename={(name) =>
+            run(async () => {
+              const r = await api.rename(id, name);
+              return t("rename.done", { name: r.name });
+            })
+          }
+        />
+      )}
+      {dialog?.type === "deleteWorld" && world && (
+        <Modal title={t("deleteWorld.title", { name: world.name })} onClose={() => setDialog(undefined)}>
+          {world.inUse ? (
+            <div className="callout warn">{t("deleteWorld.exitFirst")}</div>
+          ) : (
+            <p>{t("deleteWorld.body", { path: world.path })}</p>
+          )}
+          <div className="actions">
+            <button onClick={() => setDialog(undefined)}>{t("common.cancel")}</button>
+            <button
+              className="danger"
+              disabled={world.inUse}
+              onClick={() =>
+                run(async () => {
+                  track(await api.deleteWorld(id));
+                })
+              }
+            >
+              {t("world.delete")}
+            </button>
+          </div>
+        </Modal>
       )}
       {dialog?.type === "load" && (
         <LoadDialog
@@ -216,3 +263,52 @@ function SaveDialog({
   );
 }
 
+
+function RenameDialog({
+  name,
+  inUse,
+  onClose,
+  onRename,
+}: {
+  name: string;
+  inUse: boolean;
+  onClose: () => void;
+  onRename: (name: string) => void;
+}) {
+  const { t } = useI18n();
+  const [value, setValue] = useState(name);
+  const [busy, setBusy] = useState(false);
+  const changed = value.trim() !== "" && value.trim() !== name;
+  return (
+    <Modal title={t("rename.title")} onClose={onClose}>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          setBusy(true);
+          onRename(value.trim());
+        }}
+      >
+        {inUse && <div className="callout warn">{t("rename.exitFirst")}</div>}
+        <label>
+          {t("save.name")}
+          <input
+            autoFocus
+            value={value}
+            maxLength={200}
+            onFocus={(e) => e.target.select()}
+            onChange={(e) => setValue(e.target.value)}
+          />
+        </label>
+        <p className="muted small">{t("rename.hint")}</p>
+        <div className="actions">
+          <button type="button" onClick={onClose}>
+            {t("common.cancel")}
+          </button>
+          <button className="primary" disabled={busy || inUse || !changed}>
+            {t("world.rename")}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}

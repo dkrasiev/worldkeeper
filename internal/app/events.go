@@ -14,6 +14,7 @@ const (
 	EventBackup  EventKind = "backup"
 	EventRestore EventKind = "restore"
 	EventError   EventKind = "error"
+	EventWorld   EventKind = "world" // renamed or deleted
 )
 
 // Event is a line in the activity feed. Failures must be visible:
@@ -38,6 +39,9 @@ const (
 	CodeBackupFailed  = "backup_failed"  // params: error
 	CodeRestoreDone   = "restore_done"   // params: snapshot, path
 	CodeRestoreFailed = "restore_failed" // params: error
+	CodeWorldRenamed  = "world_renamed"  // params: from, to
+	CodeWorldDeleted  = "world_deleted"  // params: path
+	CodeDeleteFailed  = "delete_failed"  // params: error
 )
 
 func (a *App) event(kind EventKind, worldID, world, code string, params map[string]string, msg string) {

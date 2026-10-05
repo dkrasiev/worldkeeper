@@ -163,3 +163,30 @@ func waitJob(t *testing.T, h http.Handler, token string, rec *httptest.ResponseR
 	t.Fatalf("job %s did not finish", started.ID)
 	return app.Job{}
 }
+
+func TestRenameAndDeleteWorld(t *testing.T) {
+	h, token := newServer(t)
+	host := "127.0.0.1:25599"
+	if rec := do(h, "PATCH", "/api/worlds/minecraft--w", host, token, `{"name":"  "}`); rec.Code != 400 || !strings.Contains(rec.Body.String(), `"key":"name_required"`) {
+		t.Errorf("empty name: %d %s", rec.Code, rec.Body)
+	}
+	if rec := do(h, "PATCH", "/api/worlds/minecraft--w", host, token, `{"name":"Renamed"}`); rec.Code != 200 {
+		t.Fatalf("rename: %d %s", rec.Code, rec.Body)
+	}
+	if rec := do(h, "GET", "/api/worlds/minecraft--w", host, token, ""); !strings.Contains(rec.Body.String(), `"name":"Renamed"`) {
+		t.Errorf("info after rename: %s", rec.Body)
+	}
+	rec := do(h, "DELETE", "/api/worlds/minecraft--w", host, token, "")
+	if rec.Code != 202 {
+		t.Fatalf("delete: %d %s", rec.Code, rec.Body)
+	}
+	if job := waitJob(t, h, token, rec); job.State != app.JobDone {
+		t.Fatalf("delete job = %+v", job)
+	}
+	if rec := do(h, "GET", "/api/worlds/minecraft--w", host, token, ""); rec.Code != 404 {
+		t.Errorf("world after delete: %d", rec.Code)
+	}
+	if rec := do(h, "GET", "/api/overview", host, token, ""); !strings.Contains(rec.Body.String(), `"kind":"pre-delete"`) {
+		t.Errorf("overview after delete: %s", rec.Body)
+	}
+}

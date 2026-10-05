@@ -21,6 +21,7 @@ type JobKind string
 const (
 	JobBackup  JobKind = "backup"
 	JobRestore JobKind = "restore"
+	JobDelete  JobKind = "delete"
 )
 
 type JobState string
@@ -37,6 +38,7 @@ const (
 	PhaseBackup  = "backup"
 	PhaseSafety  = "safety"
 	PhaseRestore = "restore"
+	PhaseDelete  = "delete"
 )
 
 // Job is a backup or restore running in the background, so the HTTP
@@ -80,18 +82,13 @@ type jobs struct {
 func (js *jobs) start(kind JobKind, worldID, world string, auto bool) (*Job, error) {
 	js.mu.Lock()
 	defer js.mu.Unlock()
-	if js.byID == nil {
-		js.byID, js.busy = map[string]*Job{}, map[string]string{}
-	}
+	js.init()
 	if _, ok := js.busy[worldID]; ok {
 		return nil, ErrBusy
 	}
 	js.prune()
 	js.seq++
-	phase := PhaseBackup
-	if kind == JobRestore {
-		phase = PhaseRestore
-	}
+	phase := map[JobKind]string{JobBackup: PhaseBackup, JobRestore: PhaseRestore, JobDelete: PhaseSafety}[kind]
 	j := &Job{
 		ID: fmt.Sprintf("%d", js.seq), Kind: kind, WorldID: worldID, World: world, Auto: auto,
 		State: JobRunning, Phase: phase, StartedAt: time.Now().UTC(),
@@ -99,6 +96,29 @@ func (js *jobs) start(kind JobKind, worldID, world string, auto bool) (*Job, err
 	js.byID[j.ID] = j
 	js.busy[worldID] = j.ID
 	return j, nil
+}
+
+func (js *jobs) init() {
+	if js.byID == nil {
+		js.byID, js.busy = map[string]*Job{}, map[string]string{}
+	}
+}
+
+// claim reserves a world for a quick change that is not listed as a job,
+// such as a rename. Call release when done.
+func (js *jobs) claim(worldID string) (release func(), err error) {
+	js.mu.Lock()
+	defer js.mu.Unlock()
+	js.init()
+	if _, ok := js.busy[worldID]; ok {
+		return nil, ErrBusy
+	}
+	js.busy[worldID] = ""
+	return func() {
+		js.mu.Lock()
+		delete(js.busy, worldID)
+		js.mu.Unlock()
+	}, nil
 }
 
 func (js *jobs) prune() {
