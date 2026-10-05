@@ -256,9 +256,18 @@ func readStats(dir string) *Stats {
 	return best
 }
 
-func countAdvancements(dir string) int {
+type advancement struct {
+	Criteria map[string]string `json:"criteria"` // criterion -> completion time
+	Done     bool              `json:"done"`
+}
+
+// readAdvancements returns the advancements file of the player with the most
+// completed advancements (in singleplayer there is normally just one).
+// Recipe unlocks are left out: the game tracks them as advancements too.
+func readAdvancements(dir string) map[string]advancement {
 	files, _ := filepath.Glob(filepath.Join(dir, "advancements", "*.json"))
-	best := 0
+	var best map[string]advancement
+	bestDone := -1
 	for _, f := range files {
 		b, err := os.ReadFile(f)
 		if err != nil {
@@ -268,21 +277,56 @@ func countAdvancements(dir string) int {
 		if json.Unmarshal(b, &raw) != nil {
 			continue
 		}
-		n := 0
+		advs := map[string]advancement{}
+		done := 0
 		for k, v := range raw {
 			if k == "DataVersion" || strings.Contains(k, ":recipes/") {
 				continue
 			}
-			var a struct {
-				Done bool `json:"done"`
+			var a advancement
+			if json.Unmarshal(v, &a) != nil {
+				continue
 			}
-			if json.Unmarshal(v, &a) == nil && a.Done {
-				n++
+			advs[k] = a
+			if a.Done {
+				done++
 			}
 		}
-		best = max(best, n)
+		if done > bestDone {
+			best, bestDone = advs, done
+		}
 	}
 	return best
+}
+
+func countAdvancements(dir string) int {
+	n := 0
+	for _, a := range readAdvancements(dir) {
+		if a.Done {
+			n++
+		}
+	}
+	return n
+}
+
+// AdvancementProgress converts the player's advancements into the progress
+// file format of the mcwidgets advancement viewer: id -> true when done,
+// otherwise id -> {"criteria": {name: true}} for partial progress.
+func AdvancementProgress(dir string) map[string]any {
+	out := map[string]any{}
+	for id, a := range readAdvancements(dir) {
+		switch {
+		case a.Done:
+			out[id] = true
+		case len(a.Criteria) > 0:
+			criteria := map[string]bool{}
+			for name := range a.Criteria {
+				criteria[name] = true
+			}
+			out[id] = map[string]any{"criteria": criteria}
+		}
+	}
+	return out
 }
 
 // scanDisk sums file sizes and counts region files per dimension.

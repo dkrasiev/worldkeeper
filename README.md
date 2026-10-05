@@ -12,6 +12,7 @@ Automatic backups for Minecraft: Java Edition worlds. Worldkeeper saves a world 
 - **Named saves.** Click "Save now" before fighting the Ender Dragon. Rotation only removes automatic saves and never deletes named ones.
 - **Load any save.** You can replace the current world or load the save as a new world next to it. Before replacing, Worldkeeper makes a safety save of the current state, so every restore can be undone.
 - **World info read from the files:** version, mode, difficulty, seed, in-game day, weather, spawn, player position, health and level, play time, deaths, mobs killed, distance travelled, advancements, size on disk, explored regions per dimension, data packs, game rules, and mod loaders.
+- **Advancement tree.** The world page can show the in-game advancement screen with the player's progress, drawn by [mcwidgets](https://github.com/KabanFriends/mcwidgets). It is off until you click **Show advancement tree**: the widget loads from `mcwidgets.kaban.sh` in a sandboxed iframe, so it needs internet access, and the world's advancement progress is sent to that site. Only vanilla advancements are shown. Worldkeeper does not ship Minecraft textures itself.
 - **Plain zip files or a restic repository.** By default every save is an ordinary `.zip` file, so you can restore a world with any archive tool even without Worldkeeper. Alternatively, saves can go to a [restic](https://restic.net) repository: encrypted and deduplicated, so dozens of saves of a big world take little extra space.
 
 ## Install

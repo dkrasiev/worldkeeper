@@ -86,7 +86,7 @@ func Create(t testing.TB, saves, folder string, o Options) string {
 		"region/r.-1.0.mca":      "overworld region",
 		"DIM-1/region/r.0.0.mca": "nether region",
 		"stats/0000.json":        `{"stats":{"minecraft:custom":{"minecraft:play_time":72000,"minecraft:deaths":3,"minecraft:mob_kills":42,"minecraft:walk_one_cm":150000,"minecraft:sprint_one_cm":50000,"minecraft:jump":10}},"DataVersion":4189}`,
-		"advancements/0000.json": `{"minecraft:story/root":{"done":true},"minecraft:story/mine_stone":{"done":true},"minecraft:recipes/misc/x":{"done":true},"minecraft:story/smelt_iron":{"done":false},"DataVersion":4189}`,
+		"advancements/0000.json": `{"minecraft:story/root":{"done":true},"minecraft:story/mine_stone":{"done":true},"minecraft:recipes/misc/x":{"done":true},"minecraft:story/smelt_iron":{"criteria":{"iron":"2026-10-05 12:00:00 +0000"},"done":false},"DataVersion":4189}`,
 	}
 	for name, content := range files {
 		must(t, os.WriteFile(filepath.Join(dir, filepath.FromSlash(name)), []byte(content), 0o644))

@@ -71,3 +71,21 @@ func TestDimensionID(t *testing.T) {
 		}
 	}
 }
+
+func TestAdvancementProgress(t *testing.T) {
+	dir := testworld.Create(t, t.TempDir(), "w", testworld.Options{})
+	p := AdvancementProgress(dir)
+	if p["minecraft:story/root"] != true || p["minecraft:story/mine_stone"] != true {
+		t.Errorf("done advancements missing: %v", p)
+	}
+	if _, ok := p["minecraft:recipes/misc/x"]; ok {
+		t.Error("recipes must be excluded")
+	}
+	if _, ok := p["DataVersion"]; ok {
+		t.Error("DataVersion must be excluded")
+	}
+	partial, ok := p["minecraft:story/smelt_iron"].(map[string]any)
+	if !ok || partial["criteria"].(map[string]bool)["iron"] != true {
+		t.Errorf("partial progress = %#v", p["minecraft:story/smelt_iron"])
+	}
+}

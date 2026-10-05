@@ -38,6 +38,7 @@ func New(a *app.App, ui fs.FS) http.Handler {
 	mux.HandleFunc("POST /api/restic/init", s.resticInit)
 	mux.HandleFunc("GET /api/worlds/{id}", s.worldInfo)
 	mux.HandleFunc("GET /api/worlds/{id}/icon", s.icon)
+	mux.HandleFunc("GET /api/worlds/{id}/advancements", s.advancements)
 	mux.HandleFunc("GET /api/worlds/{id}/snapshots", s.snapshots)
 	mux.HandleFunc("POST /api/worlds/{id}/snapshots", s.createSnapshot)
 	mux.HandleFunc("POST /api/worlds/{id}/snapshots/{snap}/restore", s.restore)
@@ -98,6 +99,11 @@ func (s *Server) events(w http.ResponseWriter, r *http.Request) {
 func (s *Server) worldInfo(w http.ResponseWriter, r *http.Request) {
 	info, err := s.app.Info(r.PathValue("id"))
 	respond(w, info, err)
+}
+
+func (s *Server) advancements(w http.ResponseWriter, r *http.Request) {
+	progress, err := s.app.Advancements(r.PathValue("id"))
+	respond(w, progress, err)
 }
 
 func (s *Server) icon(w http.ResponseWriter, r *http.Request) {

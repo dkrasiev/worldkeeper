@@ -181,6 +181,7 @@ export const api = {
   overview: () => request<Overview>("GET", "/api/overview"),
   events: () => request<ActivityEvent[]>("GET", "/api/events"),
   world: (id: string) => request<WorldInfo>("GET", w(id)),
+  advancements: (id: string) => request<Record<string, unknown>>("GET", `${w(id)}/advancements`),
   snapshots: (id: string) => request<SnapshotIndex>("GET", `${w(id)}/snapshots`),
   save: (id: string, label: string, note: string, force = false) =>
     request<Snapshot>("POST", `${w(id)}/snapshots`, { label, note, force }),

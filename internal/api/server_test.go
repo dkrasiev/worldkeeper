@@ -98,6 +98,10 @@ func TestSnapshotFlow(t *testing.T) {
 	if rec.Code != 200 || !strings.Contains(rec.Body.String(), `"gameVersion":"1.21.4"`) {
 		t.Fatalf("info: %d %s", rec.Code, rec.Body)
 	}
+	rec = do(h, "GET", "/api/worlds/minecraft--w/advancements", host, token, "")
+	if rec.Code != 200 || !strings.Contains(rec.Body.String(), `"minecraft:story/root":true`) {
+		t.Fatalf("advancements: %d %s", rec.Code, rec.Body)
+	}
 	if rec := do(h, "GET", "/api/worlds/nope", host, token, ""); rec.Code != 404 {
 		t.Errorf("unknown world: %d", rec.Code)
 	}
