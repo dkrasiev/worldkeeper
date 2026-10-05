@@ -182,6 +182,16 @@ func (a *App) Info(id string) (Details, error) {
 	return Details{World: w, Info: info, InUse: inUse}, nil
 }
 
+// Advancements returns the player's advancement progress in the format the
+// mcwidgets advancement viewer reads.
+func (a *App) Advancements(id string) (map[string]any, error) {
+	w, err := a.find(id)
+	if err != nil {
+		return nil, err
+	}
+	return worldinfo.AdvancementProgress(w.Path), nil
+}
+
 // IconPath returns the world's icon.png path.
 func (a *App) IconPath(id string) (string, error) {
 	w, err := a.find(id)

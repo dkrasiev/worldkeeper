@@ -558,3 +558,39 @@ label.check input {
 .callout .actions {
   margin-top: 8px;
 }
+
+/* advancement tree (mcwidgets iframe) */
+.advancements {
+  margin-top: 16px;
+}
+.panel-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.panel-head h2 {
+  margin: 0;
+}
+.panel-head .link {
+  margin-left: auto;
+}
+.adv-optin p {
+  margin-top: 0;
+  max-width: 70ch;
+}
+.adv-frame {
+  display: block;
+  width: 100%;
+  height: 440px;
+  border: 0;
+  /* Match the embedded page's (light) scheme: on a mismatch the browser
+     paints an opaque white backdrop behind its transparent body. */
+  color-scheme: light;
+  background: transparent;
+}
+@media (max-width: 640px) {
+  .adv-frame {
+    height: 360px;
+  }
+}
