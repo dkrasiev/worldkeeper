@@ -36,6 +36,15 @@ type Runner struct {
 	Password     func() (string, error) // e.g. read from the OS keychain
 }
 
+// command builds a restic invocation. On Windows the release build has no
+// console of its own, so without hideConsole every restic run would pop up
+// a terminal window.
+func (r *Runner) command(ctx context.Context, args ...string) *exec.Cmd {
+	cmd := exec.CommandContext(ctx, r.binary(), args...)
+	hideConsole(cmd)
+	return cmd
+}
+
 func (r *Runner) binary() string {
 	if r.Binary == "" {
 		return "restic"
@@ -45,7 +54,7 @@ func (r *Runner) binary() string {
 
 // Version returns the installed restic version, e.g. "0.18.1".
 func (r *Runner) Version(ctx context.Context) (string, error) {
-	out, err := exec.CommandContext(ctx, r.binary(), "version").Output()
+	out, err := r.command(ctx, "version").Output()
 	if err != nil {
 		var execErr *exec.Error
 		if errors.As(err, &execErr) || errors.Is(err, os.ErrNotExist) {
@@ -101,7 +110,7 @@ func (r *Runner) Run(ctx context.Context, dir string, args ...string) ([]byte, e
 	if err != nil {
 		return nil, err
 	}
-	cmd := exec.CommandContext(ctx, r.binary(), args...)
+	cmd := r.command(ctx, args...)
 	cmd.Dir = dir
 	cmd.Env = env
 	var stdout, stderr bytes.Buffer
