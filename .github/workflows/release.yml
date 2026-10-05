@@ -29,3 +29,5 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Optional: lets GoReleaser open the winget-pkgs pull request.
+          WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
