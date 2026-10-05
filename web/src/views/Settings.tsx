@@ -11,7 +11,7 @@ export function SettingsView() {
   useEffect(() => {
     if (data) {
       setForm(data);
-      setExtra(data.extraSavesDirs.join("\n"));
+      setExtra((data.extraSavesDirs ?? []).join("\n"));
     }
   }, [data]);
 

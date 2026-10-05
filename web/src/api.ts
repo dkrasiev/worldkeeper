@@ -96,7 +96,7 @@ export interface WorldInfo {
 
 export interface Settings {
   storageDir: string;
-  extraSavesDirs: string[];
+  extraSavesDirs: string[] | null;
   keepAuto: number;
   autoBackup: boolean;
   pollSeconds: number;
