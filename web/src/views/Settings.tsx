@@ -143,6 +143,9 @@ export function SettingsView() {
             <div className={`callout ${restic.state === "ok" ? "success" : restic.state === "missing" ? "warn" : "error"}`}>
               <strong>{t(`restic.state.${restic.state}`)}</strong>
               {restic.version && <span className="muted"> · {t("restic.version", { version: restic.version })}</span>}
+              {restic.binary && restic.state !== "not_installed" && (
+                <div className="small muted mono">{restic.binary}</div>
+              )}
               {restic.state === "error" && restic.message && <div className="small">{restic.message}</div>}
               {restic.state === "missing" && <div className="small">{t("restic.missingHint")}</div>}
               {restic.state === "not_installed" && <div className="small">{t("restic.install")}</div>}

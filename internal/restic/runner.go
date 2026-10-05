@@ -38,7 +38,7 @@ type Runner struct {
 
 func (r *Runner) binary() string {
 	if r.Binary == "" {
-		return "restic"
+		return Locate()
 	}
 	return r.Binary
 }

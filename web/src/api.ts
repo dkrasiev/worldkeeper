@@ -116,6 +116,7 @@ export interface Settings {
 
 export interface ResticStatus {
   version?: string;
+  binary?: string;
   state: "ok" | "not_installed" | "missing" | "wrong_password" | "no_password" | "error";
   message?: string;
 }

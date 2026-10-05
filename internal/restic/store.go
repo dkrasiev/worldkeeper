@@ -65,6 +65,8 @@ type rsnap struct {
 // Status describes whether the repository is usable.
 type Status struct {
 	Version string `json:"version,omitempty"`
+	// Binary is the restic executable that was used, to show which one was found.
+	Binary string `json:"binary,omitempty"`
 	// State: "ok", "not_installed", "missing", "wrong_password", "no_password", "error".
 	State   string `json:"state"`
 	Message string `json:"message,omitempty"`
@@ -72,26 +74,27 @@ type Status struct {
 
 // Check verifies the restic binary and the repository.
 func (s *Store) Check(ctx context.Context) Status {
+	bin := s.r.binary()
 	v, err := s.r.Version(ctx)
 	if err != nil {
 		state := "error"
 		if errors.Is(err, ErrNotInstalled) {
 			state = "not_installed"
 		}
-		return Status{Version: v, State: state, Message: err.Error()}
+		return Status{Version: v, Binary: bin, State: state, Message: err.Error()}
 	}
 	_, err = s.r.Run(ctx, "", "cat", "config")
 	switch {
 	case err == nil:
-		return Status{Version: v, State: "ok"}
+		return Status{Version: v, Binary: bin, State: "ok"}
 	case errors.Is(err, ErrRepoMissing):
-		return Status{Version: v, State: "missing", Message: "Nothing is stored at this location yet. Initialize it to start backing up here."}
+		return Status{Version: v, Binary: bin, State: "missing", Message: "Nothing is stored at this location yet. Initialize it to start backing up here."}
 	case errors.Is(err, ErrWrongPassword):
-		return Status{Version: v, State: "wrong_password", Message: "Wrong password for this repository."}
+		return Status{Version: v, Binary: bin, State: "wrong_password", Message: "Wrong password for this repository."}
 	case errors.Is(err, ErrNoPassword):
-		return Status{Version: v, State: "no_password", Message: "Enter the repository password."}
+		return Status{Version: v, Binary: bin, State: "no_password", Message: "Enter the repository password."}
 	default:
-		return Status{Version: v, State: "error", Message: err.Error()}
+		return Status{Version: v, Binary: bin, State: "error", Message: err.Error()}
 	}
 }
 
