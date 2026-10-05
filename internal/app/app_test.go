@@ -251,7 +251,7 @@ func TestBackupChangedAndHealth(t *testing.T) {
 		t.Fatalf("health after backup = %+v", h)
 	}
 
-	f.app.event(EventError, "minecraft--a", "a", "Backup failed: NAS offline")
+	f.app.event(EventError, "minecraft--a", "a", CodeBackupFailed, map[string]string{"error": "NAS offline"}, "Backup failed: NAS offline")
 	if h := f.app.Health(); h.FailingWorld != "a" {
 		t.Fatalf("health with failure = %+v", h)
 	}
