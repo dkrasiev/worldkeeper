@@ -3,6 +3,8 @@ name: Dev build
 # A Windows x64 test build for every pull request and every push to main,
 # made once per commit: a commit that already has a build artifact (e.g. a
 # PR head that later lands on main unchanged) is not built again.
+# Re-running a run is the exception: GitHub deletes the earlier attempt's
+# artifacts, so a re-run builds again (useful when a build needs repeating).
 on:
   pull_request:
   push:
