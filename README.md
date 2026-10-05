@@ -121,7 +121,7 @@ Plural entries use the CLDR categories (`one`, `few`, `many`, `other`, …) that
 
 Releases are built by GoReleaser when a `v*` tag is pushed.
 
-**Dev builds.** Every commit to `main` that passes CI is built for all platforms by the *Dev build* workflow. The builds are versioned like `0.1.1-dev.abc1234`. To get one, open the workflow run in the [Actions tab](https://github.com/dkrasiev/worldkeeper/actions/workflows/dev-build.yml) and download it from *Artifacts*. You need to be signed in to GitHub, and artifacts are kept for 14 days. Dev builds are for testing and are not releases.
+**Dev builds.** Every pull request and every push to `main` gets a Windows x64 test build (`worldkeeper.exe`, versioned like `0.1.1-dev.abc1234`), made once per commit. To get one, open the *Dev build* run for that commit in the [Actions tab](https://github.com/dkrasiev/worldkeeper/actions/workflows/dev-build.yml) and download it from *Artifacts*. You need to be signed in to GitHub, and artifacts are kept for 14 days. Dev builds are for testing and are not releases.
 
 ## License
 

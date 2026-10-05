@@ -1,76 +1,94 @@
 name: Dev build
 
-# Test builds of main for every platform, made only from commits whose CI
-# passed. They are uploaded as workflow artifacts (not as a release), so no
-# tag is moved and nothing is published to winget.
+# A Windows x64 test build for every pull request and every push to main,
+# made once per commit: a commit that already has a build artifact (e.g. a
+# PR head that later lands on main unchanged) is not built again.
 on:
-  workflow_run:
-    workflows: [CI]
-    types: [completed]
+  pull_request:
+  push:
     branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: read
+  actions: read # to look up existing artifacts
 
 concurrency:
-  group: dev-build
-  cancel-in-progress: true # only the newest main matters
+  # One build per commit at a time; a second run for the same commit waits,
+  # then finds the artifact and skips.
+  group: dev-build-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: false
+
+env:
+  # Build the commit itself, not the temporary PR merge commit (which gets a
+  # new SHA every time the base branch moves).
+  COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
 
 jobs:
-  build:
-    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
-    runs-on: macos-latest # cgo for the macOS menu bar icon, like releases
+  windows-amd64:
+    runs-on: ubuntu-latest # pure Go cross-compile; no cgo needed for Windows
     steps:
+      - name: Already built?
+        id: existing
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          name="worldkeeper-windows-amd64-${COMMIT}"
+          count=$(gh api "repos/${{ github.repository }}/actions/artifacts?name=${name}" \
+            --jq '[.artifacts[] | select(.expired | not)] | length')
+          echo "name=${name}" >> "$GITHUB_OUTPUT"
+          if [ "${count}" -gt 0 ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "Commit ${COMMIT} already has a build (${name}); skipping." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
       - uses: actions/checkout@v4
+        if: steps.existing.outputs.skip != 'true'
         with:
-          # workflow_run checks out the default branch head by default; build
-          # exactly the commit that passed CI.
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          ref: ${{ env.COMMIT }}
           fetch-depth: 0 # GoReleaser derives the version from tags
       - uses: actions/setup-go@v5
+        if: steps.existing.outputs.skip != 'true'
         with:
           go-version-file: go.mod
       - uses: pnpm/action-setup@v4
+        if: steps.existing.outputs.skip != 'true'
         with:
           version: 10
       - uses: actions/setup-node@v4
+        if: steps.existing.outputs.skip != 'true'
         with:
           node-version: 24
+
+      # Same build settings as releases (GUI subsystem, version stamp), only
+      # the windows/amd64 target.
       - uses: goreleaser/goreleaser-action@v6
+        if: steps.existing.outputs.skip != 'true'
         with:
           version: "~> v2"
-          args: release --snapshot --clean --skip=winget
+          args: build --snapshot --clean --single-target --id windows
+        env:
+          GOOS: windows
+          GOARCH: amd64
 
       - name: Version
         id: version
+        if: steps.existing.outputs.skip != 'true'
         run: echo "version=$(jq -r .version dist/metadata.json)" >> "$GITHUB_OUTPUT"
 
       - uses: actions/upload-artifact@v4
+        if: steps.existing.outputs.skip != 'true'
         with:
-          name: worldkeeper-${{ steps.version.outputs.version }}-windows
-          path: dist/*_windows_*.zip
-          retention-days: 14
-      - uses: actions/upload-artifact@v4
-        with:
-          name: worldkeeper-${{ steps.version.outputs.version }}-macos
-          path: dist/*_darwin_*.tar.gz
-          retention-days: 14
-      - uses: actions/upload-artifact@v4
-        with:
-          name: worldkeeper-${{ steps.version.outputs.version }}-linux
-          path: dist/*_linux_*.tar.gz
-          retention-days: 14
-      - uses: actions/upload-artifact@v4
-        with:
-          name: worldkeeper-${{ steps.version.outputs.version }}-checksums
-          path: dist/checksums.txt
+          name: ${{ steps.existing.outputs.name }}
+          path: dist/windows_windows_amd64_v1/worldkeeper.exe
+          if-no-files-found: error
           retention-days: 14
 
       - name: Summary
+        if: steps.existing.outputs.skip != 'true'
         run: |
           {
-            echo "### Dev build ${{ steps.version.outputs.version }}"
+            echo "### Windows x64 test build ${{ steps.version.outputs.version }}"
             echo
-            echo "Commit \`${{ github.event.workflow_run.head_sha || github.sha }}\`. Test build, not a release. Download from **Artifacts** below (kept for 14 days)."
+            echo "Commit \`${COMMIT}\`. Download \`worldkeeper.exe\` from **Artifacts** below (kept for 14 days). Test build, not a release."
           } >> "$GITHUB_STEP_SUMMARY"
