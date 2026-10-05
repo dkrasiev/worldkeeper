@@ -190,6 +190,7 @@ const w = (id: string) => `/api/worlds/${encodeURIComponent(id)}`;
 export const api = {
   overview: () => request<Overview>("GET", "/api/overview"),
   events: () => request<ActivityEvent[]>("GET", "/api/events"),
+  about: () => request<{ version: string; os: string; arch: string }>("GET", "/api/about"),
   world: (id: string) => request<WorldInfo>("GET", w(id)),
   advancements: (id: string) => request<Record<string, unknown>>("GET", `${w(id)}/advancements`),
   snapshotInfo: (id: string, snap: string) =>

@@ -26,6 +26,10 @@ var (
 )
 
 type App struct {
+	// Version is the running build's version ("0.1.0", "0.1.1-dev.abc1234",
+	// or "dev" for go run / go build without release flags).
+	Version string
+
 	Config  *config.Store
 	Secrets secrets.Store
 	Env     discovery.Env

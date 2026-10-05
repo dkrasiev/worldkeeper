@@ -15,6 +15,8 @@ var ErrUnavailable = errors.New("system tray is not available in this build")
 
 // Controller is what the tray menu acts on.
 type Controller interface {
+	// Version is shown in the menu, e.g. "0.1.0".
+	Version() string
 	OpenUI()
 	// BackupNow backs up every world that changed since its last save.
 	BackupNow() BackupResult

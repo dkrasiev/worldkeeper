@@ -6,6 +6,11 @@ import type { Plural } from "./types";
 export const en = {
   "lang.label": "Language",
 
+  "about.testBuild": "test build",
+  "about.devBuild": "development build",
+  "about.releaseNotes": "What's new",
+  "about.report": "Report a problem",
+
   "nav.worlds": "Worlds",
   "nav.activity": "Activity",
   "nav.settings": "Settings",

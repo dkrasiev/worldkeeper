@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -32,6 +33,7 @@ func New(a *app.App, ui fs.FS) http.Handler {
 
 	mux.HandleFunc("GET /api/overview", s.overview)
 	mux.HandleFunc("GET /api/events", s.events)
+	mux.HandleFunc("GET /api/about", s.about)
 	mux.HandleFunc("GET /api/config", s.getConfig)
 	mux.HandleFunc("PUT /api/config", s.putConfig)
 	mux.HandleFunc("POST /api/restic/check", s.resticCheck)
@@ -92,6 +94,14 @@ func loopbackHost(hostport string) bool {
 func (s *Server) overview(w http.ResponseWriter, r *http.Request) {
 	ov, err := s.app.Overview()
 	respond(w, ov, err)
+}
+
+func (s *Server) about(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]string{
+		"version": s.app.Version,
+		"os":      runtime.GOOS,
+		"arch":    runtime.GOARCH,
+	})
 }
 
 func (s *Server) events(w http.ResponseWriter, r *http.Request) {

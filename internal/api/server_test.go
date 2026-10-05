@@ -28,6 +28,7 @@ func newServer(t *testing.T) (http.Handler, string) {
 	env := discovery.Env{GOOS: "linux", Home: t.TempDir()}
 	testworld.Create(t, discovery.DefaultSavesDir(env), "w", testworld.Options{})
 	a := app.New(cfg, &secrets.Memory{}, env, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	a.Version = "test-version"
 	ui := fstest.MapFS{"index.html": {Data: []byte("<html>ui</html>")}}
 	return New(a, ui), cfg.Get().Token
 }
@@ -83,6 +84,14 @@ func TestResticSettingsNeverEchoPassword(t *testing.T) {
 	rec = do(h, "GET", "/api/config", host, token, "")
 	if !strings.Contains(rec.Body.String(), `"resticPasswordSet":true`) || strings.Contains(rec.Body.String(), "s3cret") {
 		t.Errorf("config = %s", rec.Body)
+	}
+}
+
+func TestAbout(t *testing.T) {
+	h, token := newServer(t)
+	rec := do(h, "GET", "/api/about", "127.0.0.1:25599", token, "")
+	if rec.Code != 200 || !strings.Contains(rec.Body.String(), `"version":"test-version"`) {
+		t.Fatalf("about: %d %s", rec.Code, rec.Body)
 	}
 }
 

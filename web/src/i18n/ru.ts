@@ -5,6 +5,11 @@ import type { Dict } from "./types";
 export const ru: Dict = {
   "lang.label": "Язык",
 
+  "about.testBuild": "тестовая сборка",
+  "about.devBuild": "сборка для разработки",
+  "about.releaseNotes": "Что нового",
+  "about.report": "Сообщить о проблеме",
+
   "nav.worlds": "Миры",
   "nav.activity": "Журнал",
   "nav.settings": "Настройки",
