@@ -3,13 +3,14 @@ import { LOCALES, useI18n, type Locale } from "./i18n";
 import { useHashRoute } from "./hooks";
 import { Activity } from "./views/Activity";
 import { SettingsView } from "./views/Settings";
+import { SnapshotDetail } from "./views/SnapshotDetail";
 import { WorldDetail } from "./views/WorldDetail";
 import { WorldList } from "./views/WorldList";
 
 export function App() {
   const { t, locale, setLocale } = useI18n();
   const [route, go] = useHashRoute();
-  const [page, arg] = route;
+  const [page, arg, sub, subArg] = route;
 
   const tab = (name: string, path: string, label: string) => (
     <a className={`tab ${(page ?? "") === name ? "active" : ""}`} href={`#/${path}`}>
@@ -46,6 +47,12 @@ export function App() {
       <main className="content">
         {!token ? (
           <div className="callout error">{t("app.noToken")}</div>
+        ) : page === "world" && arg && sub === "save" && subArg ? (
+          <SnapshotDetail
+            id={arg}
+            snapId={subArg}
+            onBack={() => go(`/world/${encodeURIComponent(arg)}`)}
+          />
         ) : page === "world" && arg ? (
           <WorldDetail id={arg} onBack={() => go("/")} />
         ) : page === "activity" ? (

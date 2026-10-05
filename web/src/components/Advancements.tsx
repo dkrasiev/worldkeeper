@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { api } from "../api";
 import { useI18n } from "../i18n";
 
 // The advancement tree is drawn by mcwidgets (github.com/KabanFriends/mcwidgets),
@@ -38,7 +37,17 @@ function embedUrl(progress: Record<string, unknown>): string {
   return `${EMBED}?${q}`;
 }
 
-export function AdvancementsPanel({ id, earned }: { id: string; earned: number }) {
+// load fetches the progress to show: the live world's or a save's.
+// loadKey identifies it, so a different world or save reloads the tree.
+export function AdvancementsPanel({
+  load,
+  loadKey,
+  earned,
+}: {
+  load: () => Promise<Record<string, unknown>>;
+  loadKey: string;
+  earned: number;
+}) {
   const { t, errorText } = useI18n();
   const [enabled, setEnabled] = useState(readOptIn);
   const [src, setSrc] = useState<string>();
@@ -48,14 +57,15 @@ export function AdvancementsPanel({ id, earned }: { id: string; earned: number }
     if (!enabled) return;
     let cancelled = false;
     setError(undefined);
-    api.advancements(id).then(
+    load().then(
       (p) => !cancelled && setSrc(embedUrl(p)),
       (e: unknown) => !cancelled && setError(errorText(e)),
     );
     return () => {
       cancelled = true;
     };
-  }, [enabled, id, errorText]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled, loadKey, errorText]);
 
   const toggle = (on: boolean) => {
     writeOptIn(on);

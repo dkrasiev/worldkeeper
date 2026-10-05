@@ -8,10 +8,13 @@
 package snapshot
 
 import (
+	"archive/zip"
 	"bufio"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
@@ -303,6 +306,25 @@ func (s *Store) Extract(worldID, snapID, dest string) error {
 		return err
 	}
 	return nil
+}
+
+// Open serves the zip directly: archive/zip implements fs.FS.
+func (s *Store) Open(worldID, snapID string) (fs.FS, io.Closer, error) {
+	if err := checkName(worldID); err != nil {
+		return nil, nil, err
+	}
+	ix, err := s.Get(worldID)
+	if err != nil {
+		return nil, nil, err
+	}
+	if find(ix, snapID) < 0 {
+		return nil, nil, ErrNotFound
+	}
+	zr, err := zip.OpenReader(s.archivePath(worldID, snapID))
+	if err != nil {
+		return nil, nil, err
+	}
+	return zr, zr, nil
 }
 
 func (s *Store) archivePath(worldID, snapID string) string {

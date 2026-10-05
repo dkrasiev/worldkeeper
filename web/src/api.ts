@@ -57,12 +57,8 @@ export interface Overview {
   storageError?: string;
 }
 
-export interface WorldInfo {
-  id: string;
-  folder: string;
-  path: string;
-  sourceLabel: string;
-  inUse: boolean;
+/** Everything read from a world's files, live or from a save. */
+export interface WorldData {
   name: string;
   gameVersion: string;
   dataVersion: number;
@@ -93,6 +89,15 @@ export interface WorldInfo {
   advancements: number;
   sizeBytes: number;
   dimensions: { id: string; regionFiles: number }[];
+}
+
+/** A world on this computer: its files plus where it lives. */
+export interface WorldInfo extends WorldData {
+  id: string;
+  folder: string;
+  path: string;
+  sourceLabel: string;
+  inUse: boolean;
 }
 
 export type Engine = "zip" | "restic";
@@ -187,6 +192,10 @@ export const api = {
   events: () => request<ActivityEvent[]>("GET", "/api/events"),
   world: (id: string) => request<WorldInfo>("GET", w(id)),
   advancements: (id: string) => request<Record<string, unknown>>("GET", `${w(id)}/advancements`),
+  snapshotInfo: (id: string, snap: string) =>
+    request<WorldData>("GET", `${w(id)}/snapshots/${encodeURIComponent(snap)}/info`),
+  snapshotAdvancements: (id: string, snap: string) =>
+    request<Record<string, unknown>>("GET", `${w(id)}/snapshots/${encodeURIComponent(snap)}/advancements`),
   snapshots: (id: string) => request<SnapshotIndex>("GET", `${w(id)}/snapshots`),
   save: (id: string, label: string, note: string, force = false) =>
     request<Snapshot>("POST", `${w(id)}/snapshots`, { label, note, force }),

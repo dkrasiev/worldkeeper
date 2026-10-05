@@ -39,6 +39,8 @@ type App struct {
 
 	eventsMu sync.Mutex
 	events   []Event
+
+	snapCache snapshotCache
 }
 
 func New(cfg *config.Store, sec secrets.Store, env discovery.Env, log *slog.Logger) *App {

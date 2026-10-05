@@ -5,7 +5,7 @@ import (
 	"compress/gzip"
 	"fmt"
 	"io"
-	"os"
+	"io/fs"
 	"strings"
 
 	"github.com/Tnze/go-mc/nbt"
@@ -14,8 +14,8 @@ import (
 // readNBT decodes a (usually gzipped) NBT file into generic Go values:
 // compounds become map[string]any, lists []any, numbers keep their NBT width.
 // Decoding generically keeps us tolerant of format changes between versions.
-func readNBT(path string) (map[string]any, error) {
-	f, err := os.Open(path)
+func readNBT(fsys fs.FS, name string) (map[string]any, error) {
+	f, err := fsys.Open(name)
 	if err != nil {
 		return nil, err
 	}
@@ -38,7 +38,7 @@ func readNBT(path string) (map[string]any, error) {
 	}
 	m, ok := root.(map[string]any)
 	if !ok {
-		return nil, fmt.Errorf("%s: root tag is not a compound", path)
+		return nil, fmt.Errorf("%s: root tag is not a compound", name)
 	}
 	return m, nil
 }

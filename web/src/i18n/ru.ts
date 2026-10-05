@@ -63,6 +63,13 @@ export const ru: Dict = {
   "detail.deleteBody": "{name} будет удалено из хранилища. Это нельзя отменить.",
   "detail.deleted": "Сохранение удалено.",
   "snap.before": "Перед загрузкой {name}",
+  "snapshot.open": "Показать, что в этом сохранении",
+  "snapshot.backTo": "← {world}",
+  "snapshot.of": "Сохранение мира {world}",
+  "snapshot.reading": "Читаем сохранение…",
+  "snapshot.contents": "В этом сохранении",
+  "snapshot.created": "Создано",
+  "snapshot.notFound": "Этого сохранения больше нет.",
 
   "save.title": "Сохранить мир",
   "save.inUseWarning":

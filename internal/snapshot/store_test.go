@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/dkrasiev/worldkeeper/internal/testworld"
+	"github.com/dkrasiev/worldkeeper/internal/worldinfo"
 )
 
 func newTestStore(t *testing.T) (*Store, string) {
@@ -133,5 +134,32 @@ func TestExtractRejectsZipSlip(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(filepath.Dir(dest), "escaped.txt")); !os.IsNotExist(err) {
 		t.Fatal("file escaped destination")
+	}
+}
+
+func TestOpenReadsWorldInfoFromZip(t *testing.T) {
+	s, _ := newTestStore(t)
+	world := testworld.Create(t, t.TempDir(), "w", testworld.Options{Layout26: true})
+	snap, err := s.Create(WorldRef{ID: "w"}, world, Meta{Kind: KindManual})
+	if err != nil {
+		t.Fatal(err)
+	}
+	fsys, closer, err := s.Open("w", snap.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer closer.Close()
+
+	info, err := worldinfo.ReadFS(fsys, "w")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want, _ := worldinfo.Read(world)
+	if info.Seed != want.Seed || info.Advancements != want.Advancements || info.Player == nil ||
+		len(info.Dimensions) != len(want.Dimensions) || info.GameVersion != "26.3" {
+		t.Errorf("from zip = %+v\nfrom dir = %+v", info, want)
+	}
+	if _, _, err := s.Open("w", "nope"); err != ErrNotFound {
+		t.Errorf("unknown snapshot: %v", err)
 	}
 }
