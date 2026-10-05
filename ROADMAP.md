@@ -29,7 +29,7 @@ Make what already shipped trustworthy before adding more.
 - [#19](https://github.com/dkrasiev/worldkeeper/issues/19) Scheduled restic prune and check
 - [#20](https://github.com/dkrasiev/worldkeeper/issues/20) Move saves between zip and restic storage
 - [#21](https://github.com/dkrasiev/worldkeeper/issues/21) Periodic restore test
-- [#22](https://github.com/dkrasiev/worldkeeper/issues/22) Installers: Scoop, Homebrew tap
+- [#22](https://github.com/dkrasiev/worldkeeper/issues/22) Installers: Homebrew tap
 - [#23](https://github.com/dkrasiev/worldkeeper/issues/23) Decide on code signing and notarization
 
 ## [Later](https://github.com/dkrasiev/worldkeeper/milestone/4)
