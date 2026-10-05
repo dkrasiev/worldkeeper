@@ -44,6 +44,6 @@ Make what already shipped trustworthy before adding more.
 - **Bundling restic or writing a custom deduplicating format.** Saves stay plain zip files or a standard restic repository, so they can always be restored without Worldkeeper.
 - **A hosted service, accounts, or telemetry.** Everything stays on your machine and your storage.
 
-## Branches
+## Branches and releases
 
-Development happens on `develop`, and `main` holds released code. Pull requests target `develop`. Releases are tagged on `main` (`v*`) and built by GoReleaser.
+Pull requests target `main`, and every pull request runs CI on Windows, macOS and Linux. Releases are tags (`v*`) on `main`, built and published by GoReleaser.
