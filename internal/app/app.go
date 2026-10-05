@@ -41,8 +41,9 @@ type App struct {
 	resticKey   config.Restic
 	resticStore *restic.Store
 
-	eventsMu sync.Mutex
-	events   []Event
+	eventsMu   sync.Mutex
+	events     []Event
+	eventsPath string // set by OpenEvents; empty keeps the feed in memory only
 
 	snapCache  snapshotCache
 	lastBackup lastBackupCache

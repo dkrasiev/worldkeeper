@@ -1,6 +1,12 @@
 package app
 
-import "time"
+import (
+	"encoding/json"
+	"errors"
+	"fmt"
+	"os"
+	"time"
+)
 
 type EventKind string
 
@@ -23,6 +29,7 @@ type Event struct {
 	Params map[string]string `json:"params,omitempty"`
 }
 
+// maxEvents bounds the feed in memory and on disk (a few dozen KB).
 const maxEvents = 100
 
 // Event codes, translated by the UI.
@@ -40,6 +47,8 @@ func (a *App) event(kind EventKind, worldID, world, code string, params map[stri
 
 	// A retried failure repeats the same error every poll: refresh the
 	// existing entry instead of flooding the feed and the log.
+	// Only the time changes, so the file is not rewritten: a failing NAS
+	// would otherwise cause a disk write on every poll.
 	for i, prev := range a.events {
 		if prev.WorldID != worldID {
 			continue
@@ -60,6 +69,49 @@ func (a *App) event(kind EventKind, worldID, world, code string, params map[stri
 	if len(a.events) > maxEvents {
 		a.events = a.events[:maxEvents]
 	}
+	if a.eventsPath != "" {
+		if err := writeEvents(a.eventsPath, a.events); err != nil {
+			a.Log.Warn("cannot save activity log", "path", a.eventsPath, "err", err)
+		}
+	}
+}
+
+// OpenEvents loads the activity feed saved at path and saves every new
+// event there, so failures from before a restart stay visible in the feed
+// and the tray. A missing file is an empty feed. On a read error the feed
+// starts empty and the file is replaced on the next event.
+func (a *App) OpenEvents(path string) error {
+	a.eventsMu.Lock()
+	defer a.eventsMu.Unlock()
+	a.eventsPath = path
+	b, err := os.ReadFile(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	var events []Event
+	if err := json.Unmarshal(b, &events); err != nil {
+		return fmt.Errorf("%s: %w", path, err)
+	}
+	if len(events) > maxEvents {
+		events = events[:maxEvents]
+	}
+	a.events = events
+	return nil
+}
+
+func writeEvents(path string, events []Event) error {
+	b, err := json.MarshalIndent(events, "", "  ")
+	if err != nil {
+		return err
+	}
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, b, 0o644); err != nil {
+		return err
+	}
+	return os.Rename(tmp, path)
 }
 
 // Events returns recent activity, newest first.

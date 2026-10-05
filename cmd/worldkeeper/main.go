@@ -90,6 +90,14 @@ func run() error {
 	}
 	a := app.New(cfg, secrets.Keyring{}, discovery.HostEnv(), log)
 	a.Version = version
+	if serving {
+		// Only the server keeps the activity log; one-off commands would
+		// race it for the file.
+		eventsPath := filepath.Join(filepath.Dir(*cfgPath), "events.json")
+		if err := a.OpenEvents(eventsPath); err != nil {
+			log.Warn("cannot read activity log; starting a new one", "err", err)
+		}
+	}
 
 	switch flag.Arg(0) {
 	case "", "serve":
