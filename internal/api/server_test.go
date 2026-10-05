@@ -1,0 +1,88 @@
+package api
+
+import (
+	"io"
+	"log/slog"
+	"net/http"
+	"net/http/httptest"
+	"path/filepath"
+	"strings"
+	"testing"
+	"testing/fstest"
+
+	"github.com/dkrasiev/worldkeeper/internal/app"
+	"github.com/dkrasiev/worldkeeper/internal/config"
+	"github.com/dkrasiev/worldkeeper/internal/discovery"
+	"github.com/dkrasiev/worldkeeper/internal/testworld"
+)
+
+func newServer(t *testing.T) (http.Handler, string) {
+	t.Helper()
+	cfg, err := config.Open(filepath.Join(t.TempDir(), "config.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	storage := t.TempDir()
+	cfg.Update(func(c *config.Config) error { c.StorageDir = storage; return nil })
+	env := discovery.Env{GOOS: "linux", Home: t.TempDir()}
+	testworld.Create(t, discovery.DefaultSavesDir(env), "w", testworld.Options{})
+	a := app.New(cfg, env, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	ui := fstest.MapFS{"index.html": {Data: []byte("<html>ui</html>")}}
+	return New(a, ui), cfg.Get().Token
+}
+
+func do(h http.Handler, method, url, host, token, body string) *httptest.ResponseRecorder {
+	req := httptest.NewRequest(method, url, strings.NewReader(body))
+	req.Host = host
+	if token != "" {
+		req.Header.Set(tokenHeader, token)
+	}
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	return rec
+}
+
+func TestGuard(t *testing.T) {
+	h, token := newServer(t)
+	cases := []struct {
+		name, host, token string
+		want              int
+	}{
+		{"ok", "127.0.0.1:25599", token, 200},
+		{"localhost ok", "localhost:25599", token, 200},
+		{"no token", "127.0.0.1:25599", "", 401},
+		{"wrong token", "127.0.0.1:25599", "nope", 401},
+		{"dns rebinding", "evil.example:25599", token, 403},
+	}
+	for _, c := range cases {
+		if rec := do(h, "GET", "/api/overview", c.host, c.token, ""); rec.Code != c.want {
+			t.Errorf("%s: status %d, want %d", c.name, rec.Code, c.want)
+		}
+	}
+	if rec := do(h, "GET", "/api/worlds/minecraft--w/icon?token="+token, "127.0.0.1", "", ""); rec.Code != 200 {
+		t.Errorf("icon via query token: %d", rec.Code)
+	}
+	if rec := do(h, "GET", "/some/client/route", "127.0.0.1", "", ""); rec.Code != 200 || !strings.Contains(rec.Body.String(), "ui") {
+		t.Errorf("spa fallback: %d %q", rec.Code, rec.Body.String())
+	}
+}
+
+func TestSnapshotFlow(t *testing.T) {
+	h, token := newServer(t)
+	host := "127.0.0.1:25599"
+
+	rec := do(h, "POST", "/api/worlds/minecraft--w/snapshots", host, token, `{"label":"before dragon"}`)
+	if rec.Code != 200 || !strings.Contains(rec.Body.String(), "before dragon") {
+		t.Fatalf("create: %d %s", rec.Code, rec.Body)
+	}
+	rec = do(h, "GET", "/api/worlds/minecraft--w", host, token, "")
+	if rec.Code != 200 || !strings.Contains(rec.Body.String(), `"gameVersion":"1.21.4"`) {
+		t.Fatalf("info: %d %s", rec.Code, rec.Body)
+	}
+	if rec := do(h, "GET", "/api/worlds/nope", host, token, ""); rec.Code != 404 {
+		t.Errorf("unknown world: %d", rec.Code)
+	}
+	if rec := do(h, "PUT", "/api/config", host, token, `{"storageDir":"relative","keepAuto":5,"pollSeconds":15}`); rec.Code != 400 {
+		t.Errorf("relative storage dir accepted: %d", rec.Code)
+	}
+}

@@ -1,0 +1,160 @@
+package app
+
+import (
+	"errors"
+	"io"
+	"log/slog"
+	"os"
+	"path/filepath"
+	"testing"
+
+	"github.com/dkrasiev/worldkeeper/internal/config"
+	"github.com/dkrasiev/worldkeeper/internal/discovery"
+	"github.com/dkrasiev/worldkeeper/internal/snapshot"
+	"github.com/dkrasiev/worldkeeper/internal/testworld"
+)
+
+type fixture struct {
+	app   *App
+	saves string
+}
+
+func setup(t *testing.T) fixture {
+	t.Helper()
+	home := t.TempDir()
+	cfg, err := config.Open(filepath.Join(t.TempDir(), "config.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	storage := t.TempDir()
+	if _, err := cfg.Update(func(c *config.Config) error { c.StorageDir = storage; c.KeepAuto = 3; return nil }); err != nil {
+		t.Fatal(err)
+	}
+	env := discovery.Env{GOOS: "linux", Home: home}
+	a := New(cfg, env, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	return fixture{app: a, saves: discovery.DefaultSavesDir(env)}
+}
+
+func TestAutoBackupSkipsUnchanged(t *testing.T) {
+	f := setup(t)
+	dir := testworld.Create(t, f.saves, "w", testworld.Options{LastPlayed: 1000})
+
+	if _, err := f.app.Backup("minecraft--w", BackupOptions{Kind: snapshot.KindAuto}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.app.Backup("minecraft--w", BackupOptions{Kind: snapshot.KindAuto}); !errors.Is(err, ErrUnchanged) {
+		t.Fatalf("second auto backup err = %v, want ErrUnchanged", err)
+	}
+	// Manual saves are always taken.
+	if _, err := f.app.Backup("minecraft--w", BackupOptions{Kind: snapshot.KindManual, Label: "x"}); err != nil {
+		t.Fatal(err)
+	}
+
+	testworld.WriteLevel(t, dir, testworld.Options{Name: "w", LastPlayed: 2000}) // game saved
+	if _, err := f.app.Backup("minecraft--w", BackupOptions{Kind: snapshot.KindAuto}); err != nil {
+		t.Fatalf("backup after change: %v", err)
+	}
+
+	ov, err := f.app.Overview()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(ov.Worlds) != 1 || ov.Worlds[0].Snapshots != 3 || ov.Worlds[0].Changed {
+		t.Fatalf("overview = %+v", ov.Worlds)
+	}
+}
+
+func TestRestoreReplaceKeepsSafetySnapshot(t *testing.T) {
+	f := setup(t)
+	dir := testworld.Create(t, f.saves, "w", testworld.Options{})
+	good, err := f.app.Backup("minecraft--w", BackupOptions{Kind: snapshot.KindManual})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// The world gets griefed.
+	os.WriteFile(filepath.Join(dir, "region", "r.0.0.mca"), []byte("creeper was here"), 0o644)
+
+	dest, err := f.app.Restore("minecraft--w", good.ID, RestoreReplace)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if dest != dir {
+		t.Errorf("dest = %s", dest)
+	}
+	if b, _ := os.ReadFile(filepath.Join(dir, "region", "r.0.0.mca")); string(b) != "overworld region" {
+		t.Errorf("region not restored: %q", b)
+	}
+	if _, err := os.Stat(filepath.Join(f.saves, ".w.worldkeeper-old")); !os.IsNotExist(err) {
+		t.Error("old copy left behind")
+	}
+
+	ix, _ := f.app.Store.Get("minecraft--w")
+	if len(ix.Snapshots) != 2 || ix.Snapshots[0].Kind != snapshot.KindPreRestore {
+		t.Fatalf("snapshots = %+v", ix.Snapshots)
+	}
+	// Undo: the griefed state is recoverable.
+	copyDest, err := f.app.Restore("minecraft--w", ix.Snapshots[0].ID, RestoreCopy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if b, _ := os.ReadFile(filepath.Join(copyDest, "region", "r.0.0.mca")); string(b) != "creeper was here" {
+		t.Errorf("safety snapshot content = %q", b)
+	}
+}
+
+func TestRestoreArchivedWorld(t *testing.T) {
+	f := setup(t)
+	dir := testworld.Create(t, f.saves, "w", testworld.Options{})
+	snap, err := f.app.Backup("minecraft--w", BackupOptions{Kind: snapshot.KindManual})
+	if err != nil {
+		t.Fatal(err)
+	}
+	os.RemoveAll(dir) // "reinstalled Windows"
+
+	ov, _ := f.app.Overview()
+	if len(ov.Worlds) != 0 || len(ov.Archived) != 1 {
+		t.Fatalf("overview = %+v", ov)
+	}
+
+	dest, err := f.app.Restore("minecraft--w", snap.ID, RestoreReplace)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if dest != dir {
+		t.Errorf("restored to %s, want original %s", dest, dir)
+	}
+	if _, err := os.Stat(filepath.Join(dest, "level.dat")); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestWatcherCatchesUpAndRetries(t *testing.T) {
+	f := setup(t)
+	testworld.Create(t, f.saves, "w", testworld.Options{})
+
+	// Storage is unreachable: a regular file where the directory should be.
+	blocked := filepath.Join(t.TempDir(), "nas")
+	os.WriteFile(blocked, nil, 0o644)
+	f.app.Config.Update(func(c *config.Config) error { c.StorageDir = blocked; return nil })
+
+	open, pending := map[string]bool{}, map[string]bool{}
+	f.app.watchPass(open, pending, true)
+	if !pending["minecraft--w"] {
+		t.Fatal("failed backup not queued for retry")
+	}
+	if ev := f.app.Events(); len(ev) == 0 || ev[0].Kind != EventError {
+		t.Fatalf("events = %+v", ev)
+	}
+
+	storage := t.TempDir()
+	f.app.Config.Update(func(c *config.Config) error { c.StorageDir = storage; return nil })
+	f.app.watchPass(open, pending, false)
+	if pending["minecraft--w"] {
+		t.Fatal("retry did not succeed")
+	}
+	ix, _ := f.app.Store.Get("minecraft--w")
+	if len(ix.Snapshots) != 1 {
+		t.Fatalf("snapshots = %d", len(ix.Snapshots))
+	}
+}
