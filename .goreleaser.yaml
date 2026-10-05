@@ -46,8 +46,10 @@ changelog:
 
 # Opens a pull request with the new version's manifests in
 # microsoft/winget-pkgs, from the fork dkrasiev/winget-pkgs. Needs the
-# WINGET_TOKEN secret (a token that can push to that fork); without it the
-# step is skipped and the release still succeeds.
+# WINGET_TOKEN secret: a classic token with the public_repo scope (it pushes
+# to the fork and opens the pull request upstream; a fine-grained token
+# cannot reach microsoft/winget-pkgs). Without it the step is skipped and
+# the release still succeeds.
 winget:
   - name: Worldkeeper
     package_identifier: dkrasiev.Worldkeeper
