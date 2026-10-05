@@ -306,16 +306,21 @@ func TestHealthReadsStorageOnlyOnce(t *testing.T) {
 		t.Fatalf("cached health = %+v", h)
 	}
 
-	// New storage settings are read once.
-	blocked := filepath.Join(t.TempDir(), "file-not-dir")
-	os.WriteFile(blocked, nil, 0o644)
-	f.app.Config.Update(func(c *config.Config) error { c.StorageDir = blocked; return nil })
+	// New storage settings are read once. A restic engine whose binary is
+	// missing is unreadable on every OS (a file in place of the zip folder
+	// is not: Windows reports it as "not found", i.e. empty storage).
+	f.app.Config.Update(func(c *config.Config) error {
+		c.Engine = config.EngineRestic
+		c.Restic.Repo = filepath.Join(t.TempDir(), "repo")
+		c.Restic.Binary = filepath.Join(t.TempDir(), "no-restic")
+		return nil
+	})
 	if h := f.app.Health(); h.Error == "" || !h.LastBackup.IsZero() {
 		t.Fatalf("unreadable storage: %+v", h)
 	}
 
 	fresh := t.TempDir()
-	f.app.Config.Update(func(c *config.Config) error { c.StorageDir = fresh; return nil })
+	f.app.Config.Update(func(c *config.Config) error { c.Engine = config.EngineZip; c.StorageDir = fresh; return nil })
 	if h := f.app.Health(); h.Error != "" || !h.LastBackup.IsZero() {
 		t.Fatalf("fresh storage: %+v", h)
 	}
