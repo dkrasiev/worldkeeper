@@ -219,15 +219,15 @@ func TestRepeatedErrorsAreCollapsed(t *testing.T) {
 	f := setup(t)
 	// NAS offline: every world fails on every poll, interleaved.
 	for i := 0; i < 3; i++ {
-		f.app.event(EventError, "w", "w", "NAS offline")
-		f.app.event(EventError, "x", "x", "NAS offline")
+		f.app.event(EventError, "w", "w", CodeBackupFailed, nil, "NAS offline")
+		f.app.event(EventError, "x", "x", CodeBackupFailed, nil, "NAS offline")
 	}
 	if ev := f.app.Events(); len(ev) != 2 {
 		t.Fatalf("events = %d, want one per world", len(ev))
 	}
 	// A success in between starts a new entry for the next failure.
-	f.app.event(EventBackup, "w", "w", "Saved")
-	f.app.event(EventError, "w", "w", "NAS offline")
+	f.app.event(EventBackup, "w", "w", CodeBackupFailed, nil, "Saved")
+	f.app.event(EventError, "w", "w", CodeBackupFailed, nil, "NAS offline")
 	if ev := f.app.Events(); len(ev) != 4 {
 		t.Fatalf("events = %d, want 4", len(ev))
 	}

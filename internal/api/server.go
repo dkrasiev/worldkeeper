@@ -201,7 +201,8 @@ func (s *Server) resticCheck(w http.ResponseWriter, r *http.Request) {
 func (s *Server) resticInit(w http.ResponseWriter, r *http.Request) {
 	store := s.app.Restic()
 	if st := store.Check(r.Context()); st.State != "missing" {
-		writeError(w, http.StatusConflict, "not_missing", "repository cannot be initialized: "+st.State+" "+st.Message)
+		writeAPIError(w, &apiError{status: http.StatusConflict, code: "not_missing", key: "repo_not_missing",
+			params: map[string]string{"state": st.State}, msg: "repository cannot be initialized: " + st.State + " " + st.Message})
 		return
 	}
 	if err := store.Init(r.Context()); err != nil {
@@ -220,32 +221,34 @@ func (s *Server) putConfig(w http.ResponseWriter, r *http.Request) {
 	in.Restic.Binary = strings.TrimSpace(in.Restic.Binary)
 	in.Restic.PasswordFile = strings.TrimSpace(in.Restic.PasswordFile)
 	if in.Engine != config.EngineZip && in.Engine != config.EngineRestic {
-		writeError(w, http.StatusBadRequest, "bad_request", "unknown storage engine")
+		writeAPIError(w, badRequest("engine_unknown", "unknown storage engine"))
 		return
 	}
 	if in.Engine == config.EngineRestic && in.Restic.Repo == "" {
-		writeError(w, http.StatusBadRequest, "bad_request", "enter the restic repository")
+		writeAPIError(w, badRequest("restic_repo_required", "enter the restic repository"))
 		return
 	}
 	if in.ResticPassword != "" {
 		if in.Restic.Repo == "" {
-			writeError(w, http.StatusBadRequest, "bad_request", "enter the restic repository before its password")
+			writeAPIError(w, badRequest("restic_repo_before_password", "enter the restic repository before its password"))
 			return
 		}
 		if err := s.app.Secrets.Set(app.ResticSecretKey(in.Restic.Repo), in.ResticPassword); err != nil {
-			writeError(w, http.StatusInternalServerError, "internal", "cannot save the password in the system keychain: "+err.Error()+". Use a password file instead.")
+			writeAPIError(w, &apiError{status: http.StatusInternalServerError, code: "internal", key: "keychain_failed",
+				params: map[string]string{"error": err.Error()},
+				msg:    "cannot save the password in the system keychain: " + err.Error() + ". Use a password file instead."})
 			return
 		}
 	}
 	cfg, err := s.app.Config.Update(func(c *config.Config) error {
 		if in.Engine == config.EngineZip && !filepath.IsAbs(in.StorageDir) {
-			return badRequest("storage folder must be an absolute path")
+			return badRequest("storage_not_absolute", "storage folder must be an absolute path")
 		}
 		if in.KeepAuto < 1 {
-			return badRequest("keep at least one automatic snapshot")
+			return badRequest("keep_auto_min", "keep at least one automatic snapshot")
 		}
 		if in.PollSeconds < 5 {
-			return badRequest("check interval must be at least 5 seconds")
+			return badRequest("poll_min", "check interval must be at least 5 seconds")
 		}
 		dirs := []string{}
 		for _, d := range in.ExtraSavesDirs {
@@ -254,13 +257,13 @@ func (s *Server) putConfig(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			if !filepath.IsAbs(d) {
-				return badRequest("extra folder must be an absolute path: " + d)
+				return badRequest("extra_not_absolute", "extra folder must be an absolute path: "+d, "path", d)
 			}
 			dirs = append(dirs, d)
 		}
 		if in.Engine == config.EngineZip {
 			if err := os.MkdirAll(in.StorageDir, 0o755); err != nil {
-				return badRequest("cannot use storage folder: " + err.Error())
+				return badRequest("storage_unusable", "cannot use storage folder: "+err.Error(), "error", err.Error())
 			}
 			c.StorageDir = filepath.Clean(in.StorageDir)
 		}
@@ -275,26 +278,57 @@ func (s *Server) putConfig(w http.ResponseWriter, r *http.Request) {
 	respond(w, s.toSettings(cfg), err)
 }
 
-type badRequest string
+// apiError is a client-facing error. key and params let the UI show it in
+// the user's language; msg is the English text for logs and old clients.
+type apiError struct {
+	status int
+	code   string // error category, e.g. "bad_request"
+	key    string // translation key, e.g. "poll_min"
+	params map[string]string
+	msg    string
+}
 
-func (b badRequest) Error() string { return string(b) }
+func (e *apiError) Error() string { return e.msg }
+
+// badRequest builds a 400 error; kv are alternating param names and values.
+func badRequest(key, msg string, kv ...string) *apiError {
+	e := &apiError{status: http.StatusBadRequest, code: "bad_request", key: key, msg: msg}
+	if len(kv) > 0 {
+		e.params = map[string]string{}
+		for i := 0; i+1 < len(kv); i += 2 {
+			e.params[kv[i]] = kv[i+1]
+		}
+	}
+	return e
+}
+
+func writeAPIError(w http.ResponseWriter, e *apiError) {
+	body := map[string]any{"error": e.code, "message": e.msg}
+	if e.key != "" {
+		body["key"] = e.key
+	}
+	if len(e.params) > 0 {
+		body["params"] = e.params
+	}
+	writeJSON(w, e.status, body)
+}
 
 func decode(w http.ResponseWriter, r *http.Request, v any) bool {
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 	if err := json.NewDecoder(r.Body).Decode(v); err != nil {
-		writeError(w, http.StatusBadRequest, "bad_request", "invalid JSON: "+err.Error())
+		writeAPIError(w, badRequest("invalid_json", "invalid JSON: "+err.Error(), "error", err.Error()))
 		return false
 	}
 	return true
 }
 
 func respond(w http.ResponseWriter, v any, err error) {
-	var br badRequest
+	var ae *apiError
 	switch {
 	case err == nil:
 		writeJSON(w, http.StatusOK, v)
-	case errors.As(err, &br):
-		writeError(w, http.StatusBadRequest, "bad_request", err.Error())
+	case errors.As(err, &ae):
+		writeAPIError(w, ae)
 	case errors.Is(err, app.ErrWorldNotFound), errors.Is(err, snapshot.ErrNotFound), errors.Is(err, fs.ErrNotExist):
 		writeError(w, http.StatusNotFound, "not_found", err.Error())
 	case errors.Is(err, app.ErrInUse):

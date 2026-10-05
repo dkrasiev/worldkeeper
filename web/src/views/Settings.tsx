@@ -1,17 +1,10 @@
 import { useEffect, useState } from "react";
 import { api, type Engine, type ResticStatus, type Settings } from "../api";
 import { useLoad } from "../hooks";
-
-const resticStateText: Record<ResticStatus["state"], string> = {
-  ok: "Repository is ready",
-  not_installed: "restic is not installed",
-  missing: "Repository does not exist yet",
-  wrong_password: "Wrong password",
-  no_password: "Password is not set",
-  error: "Cannot open the repository",
-};
+import { useI18n } from "../i18n";
 
 export function SettingsView() {
+  const { t, errorText } = useI18n();
   const { data, error } = useLoad(api.settings, []);
   const [form, setForm] = useState<Settings>();
   const [extra, setExtra] = useState("");
@@ -28,8 +21,8 @@ export function SettingsView() {
     }
   }, [data]);
 
-  if (error) return <div className="callout error">{error.message}</div>;
-  if (!form) return <p className="muted">Loading…</p>;
+  if (error) return <div className="callout error">{errorText(error)}</div>;
+  if (!form) return <p className="muted">{t("common.loading")}</p>;
 
   const set = <K extends keyof Settings>(k: K, v: Settings[K]) => setForm({ ...form, [k]: v });
   const setResticField = (k: keyof Settings["restic"], v: string) => setForm({ ...form, restic: { ...form.restic, [k]: v } });
@@ -48,10 +41,10 @@ export function SettingsView() {
       });
       setForm(saved);
       setPassword("");
-      setStatus({ ok: true, text: "Settings saved." });
+      setStatus({ ok: true, text: t("settings.saved") });
       setRestic(saved.engine === "restic" ? await api.resticCheck() : undefined);
     } catch (err) {
-      setStatus({ ok: false, text: (err as Error).message });
+      setStatus({ ok: false, text: errorText(err) });
     } finally {
       setBusy(false);
     }
@@ -62,7 +55,7 @@ export function SettingsView() {
     try {
       setRestic(await api.resticInit());
     } catch (err) {
-      setRestic({ state: "error", message: (err as Error).message });
+      setRestic({ state: "error", message: errorText(err) });
     } finally {
       setBusy(false);
     }
@@ -82,97 +75,81 @@ export function SettingsView() {
 
   return (
     <form className="panel settings" onSubmit={submit}>
-      <h2>Settings</h2>
+      <h2>{t("settings.title")}</h2>
 
       <div className="field-group">
-        <div className="group-label">Storage format</div>
+        <div className="group-label">{t("settings.format")}</div>
         <div className="choice two">
-          {engineOption("zip", "Zip files", "One zip per save. No password, open with any archive tool.")}
-          {engineOption(
-            "restic",
-            "Restic repository",
-            "Encrypted, deduplicated: many saves of a big world cost little space. Needs restic installed.",
-          )}
+          {engineOption("zip", t("settings.zipTitle"), t("settings.zipText"))}
+          {engineOption("restic", t("settings.resticTitle"), t("settings.resticText"))}
         </div>
       </div>
 
       {form.engine === "zip" ? (
         <label>
-          Backup folder
+          {t("settings.folder")}
           <input className="mono" value={form.storageDir} onChange={(e) => set("storageDir", e.target.value)} />
-          <span className="hint">
-            A local folder, a network share (<code>\\NAS\backups\minecraft</code>, <code>/Volumes/backups</code>) or a
-            Google Drive / OneDrive / Dropbox folder.
-          </span>
+          <span className="hint">{t("settings.folderHint")}</span>
         </label>
       ) : (
         <>
           <label>
-            Repository
+            {t("settings.repo")}
             <input
               className="mono"
               value={form.restic.repo}
               onChange={(e) => setResticField("repo", e.target.value)}
               placeholder="\\NAS\backups\restic  or  sftp:user@nas:/backups/restic"
             />
-            <span className="hint">
-              Anything restic accepts: a folder or network share, <code>sftp:</code>, <code>rest:</code>, …
-            </span>
+            <span className="hint">{t("settings.repoHint")}</span>
           </label>
 
           <label>
-            Password
+            {t("settings.password")}
             <input
               type="password"
               autoComplete="new-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder={form.resticPasswordSet ? "Saved — type to replace" : "Repository password"}
+              placeholder={form.resticPasswordSet ? t("settings.passwordSaved") : t("settings.passwordPlaceholder")}
             />
-            <span className="hint">Stored in your system keychain, not in the config file.</span>
+            <span className="hint">{t("settings.passwordHint")}</span>
           </label>
-          <div className="callout warn">
-            Write the password down somewhere safe. Without it the backups can never be restored — not by Worldkeeper,
-            not by restic, not by anyone.
-          </div>
+          <div className="callout warn">{t("settings.passwordWarning")}</div>
 
           <details>
-            <summary>Advanced</summary>
+            <summary>{t("settings.advanced")}</summary>
             <label>
-              restic executable
+              {t("settings.binary")}
               <input
                 className="mono"
                 value={form.restic.binary}
                 onChange={(e) => setResticField("binary", e.target.value)}
-                placeholder="restic (from PATH)"
+                placeholder={t("settings.binaryPlaceholder")}
               />
             </label>
             <label>
-              Password file
+              {t("settings.passwordFile")}
               <input
                 className="mono"
                 value={form.restic.passwordFile}
                 onChange={(e) => setResticField("passwordFile", e.target.value)}
-                placeholder="Use instead of the keychain"
+                placeholder={t("settings.passwordFilePlaceholder")}
               />
             </label>
           </details>
 
           {restic && (
             <div className={`callout ${restic.state === "ok" ? "success" : restic.state === "missing" ? "warn" : "error"}`}>
-              <strong>{resticStateText[restic.state]}</strong>
-              {restic.version && <span className="muted"> · restic {restic.version}</span>}
-              {restic.message && restic.state !== "ok" && <div className="small">{restic.message}</div>}
-              {restic.state === "not_installed" && (
-                <div className="small">
-                  Install it with <code>winget install restic.restic</code> (Windows) or <code>brew install restic</code>{" "}
-                  (macOS), then restart Worldkeeper.
-                </div>
-              )}
+              <strong>{t(`restic.state.${restic.state}`)}</strong>
+              {restic.version && <span className="muted"> · {t("restic.version", { version: restic.version })}</span>}
+              {restic.state === "error" && restic.message && <div className="small">{restic.message}</div>}
+              {restic.state === "missing" && <div className="small">{t("restic.missingHint")}</div>}
+              {restic.state === "not_installed" && <div className="small">{t("restic.install")}</div>}
               {restic.state === "missing" && (
                 <div className="actions">
                   <button type="button" className="primary" disabled={busy} onClick={init}>
-                    Initialize repository
+                    {t("settings.init")}
                   </button>
                 </div>
               )}
@@ -183,33 +160,31 @@ export function SettingsView() {
 
       <label className="check">
         <input type="checkbox" checked={form.autoBackup} onChange={(e) => set("autoBackup", e.target.checked)} />
-        Back up a world automatically when you exit it in the game
+        {t("settings.autoBackup")}
       </label>
 
       <div className="row">
         <label>
-          Automatic saves to keep per world
+          {t("settings.keepAuto")}
           <input type="number" min={1} value={form.keepAuto} onChange={(e) => set("keepAuto", Number(e.target.value))} />
-          <span className="hint">Your named saves are never deleted automatically.</span>
+          <span className="hint">{t("settings.keepAutoHint")}</span>
         </label>
         <label>
-          Check every (seconds)
+          {t("settings.poll")}
           <input type="number" min={5} value={form.pollSeconds} onChange={(e) => set("pollSeconds", Number(e.target.value))} />
         </label>
       </div>
 
       <label>
-        <span>
-          Extra <code>saves</code> folders
-        </span>
-        <textarea className="mono" rows={3} value={extra} onChange={(e) => setExtra(e.target.value)} placeholder="One path per line" />
-        <span className="hint">For launchers Worldkeeper does not know about.</span>
+        {t("settings.extra")}
+        <textarea className="mono" rows={3} value={extra} onChange={(e) => setExtra(e.target.value)} placeholder={t("settings.extraPlaceholder")} />
+        <span className="hint">{t("settings.extraHint")}</span>
       </label>
 
       {status && <div className={`callout ${status.ok ? "success" : "error"}`}>{status.text}</div>}
       <div className="actions">
         <button className="primary" disabled={busy}>
-          {busy ? "Saving…" : "Save settings"}
+          {busy ? t("settings.saving") : t("settings.save")}
         </button>
       </div>
     </form>
