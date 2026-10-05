@@ -4,6 +4,7 @@ import { Field, KindBadge, Modal, ModeBadge, WorldIcon } from "../components/ui"
 import { bytes, capitalize, dateTime, dimensionName, duration, num, relative } from "../format";
 import { CopyText } from "../components/CopyText";
 import { useLoad } from "../hooks";
+import { AdvancementsPanel } from "../components/Advancements";
 
 type Dialog =
   | { type: "save"; force?: boolean }
@@ -105,6 +106,8 @@ export function WorldDetail({ id, onBack }: { id: string; onBack: () => void }) 
 
         {world && <InfoPanel w={world} />}
       </div>
+
+      {world && <AdvancementsPanel id={id} earned={world.advancements} />}
 
       {dialog?.type === "save" && (
         <SaveDialog

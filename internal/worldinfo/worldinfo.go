@@ -152,16 +152,24 @@ func Read(dir string) (Info, error) {
 			info.Difficulty = difficulties[n]
 		}
 	}
+	// Since 26.x most global state lives in data/minecraft/*.dat instead of
+	// level.dat; read whichever exists.
 	if seed, ok := getInt(d, "WorldGenSettings.seed", "RandomSeed"); ok {
+		info.Seed = strconv.FormatInt(seed, 10)
+	} else if seed, ok := getInt(readData(dir, "world_gen_settings"), "seed"); ok {
 		info.Seed = strconv.FormatInt(seed, 10)
 	}
 	if t, ok := getInt(d, "DayTime", "Time"); ok {
 		info.Day = t / 24000
 	}
+	weather := d
+	if _, ok := first(d, "raining", "thundering"); !ok {
+		weather = readData(dir, "weather")
+	}
 	switch {
-	case getBool(d, "thundering"):
+	case getBool(weather, "thundering"):
 		info.Weather = "thunder"
-	case getBool(d, "raining"):
+	case getBool(weather, "raining"):
 		info.Weather = "rain"
 	default:
 		info.Weather = "clear"
@@ -173,8 +181,14 @@ func Read(dir string) (Info, error) {
 		z, _ := getInt(d, "SpawnZ")
 		info.Spawn = []int64{x, y, z}
 	}
-	for k, v := range getMap(d, "GameRules", "game_rules") {
-		info.GameRules[k] = fmt.Sprint(v)
+	rules := getMap(d, "GameRules", "game_rules")
+	if rules == nil {
+		rules = readData(dir, "game_rules")
+	}
+	for k, v := range rules {
+		if k != "DataVersion" {
+			info.GameRules[k] = fmt.Sprint(v)
+		}
 	}
 
 	info.Player = readPlayer(dir, getMap(d, "Player"))
@@ -187,7 +201,7 @@ func Read(dir string) (Info, error) {
 func readPlayer(dir string, p map[string]any) *Player {
 	if p == nil {
 		// Newer versions may keep the singleplayer player only in playerdata/.
-		files, _ := filepath.Glob(filepath.Join(dir, "playerdata", "*.dat"))
+		files := playerFiles(dir, "data", "*.dat")
 		if len(files) == 0 {
 			return nil
 		}
@@ -215,10 +229,33 @@ func readPlayer(dir string, p map[string]any) *Player {
 	return pl
 }
 
+// playerFiles finds per-player files in both world layouts: 26.x keeps
+// them under players/{data,stats,advancements}/, older versions under
+// playerdata/, stats/ and advancements/ at the world root.
+func playerFiles(dir, kind, pattern string) []string {
+	legacy := kind
+	if kind == "data" {
+		legacy = "playerdata"
+	}
+	files, _ := filepath.Glob(filepath.Join(dir, "players", kind, pattern))
+	old, _ := filepath.Glob(filepath.Join(dir, legacy, pattern))
+	return append(files, old...)
+}
+
+// readData reads the "data" compound of data/minecraft/<name>.dat (26.x).
+// A missing file yields nil, which the getters treat as "no value".
+func readData(dir, name string) map[string]any {
+	root, err := readNBT(filepath.Join(dir, "data", "minecraft", name+".dat"))
+	if err != nil {
+		return nil
+	}
+	return getMap(root, "data")
+}
+
 // readStats picks the stats file with the most play time (in singleplayer
 // there is normally just one).
 func readStats(dir string) *Stats {
-	files, _ := filepath.Glob(filepath.Join(dir, "stats", "*.json"))
+	files := playerFiles(dir, "stats", "*.json")
 	var best *Stats
 	for _, f := range files {
 		b, err := os.ReadFile(f)
@@ -256,9 +293,18 @@ func readStats(dir string) *Stats {
 	return best
 }
 
-func countAdvancements(dir string) int {
-	files, _ := filepath.Glob(filepath.Join(dir, "advancements", "*.json"))
-	best := 0
+type advancement struct {
+	Criteria map[string]string `json:"criteria"` // criterion -> completion time
+	Done     bool              `json:"done"`
+}
+
+// readAdvancements returns the advancements file of the player with the most
+// completed advancements (in singleplayer there is normally just one).
+// Recipe unlocks are left out: the game tracks them as advancements too.
+func readAdvancements(dir string) map[string]advancement {
+	files := playerFiles(dir, "advancements", "*.json")
+	var best map[string]advancement
+	bestDone := -1
 	for _, f := range files {
 		b, err := os.ReadFile(f)
 		if err != nil {
@@ -268,21 +314,56 @@ func countAdvancements(dir string) int {
 		if json.Unmarshal(b, &raw) != nil {
 			continue
 		}
-		n := 0
+		advs := map[string]advancement{}
+		done := 0
 		for k, v := range raw {
 			if k == "DataVersion" || strings.Contains(k, ":recipes/") {
 				continue
 			}
-			var a struct {
-				Done bool `json:"done"`
+			var a advancement
+			if json.Unmarshal(v, &a) != nil {
+				continue
 			}
-			if json.Unmarshal(v, &a) == nil && a.Done {
-				n++
+			advs[k] = a
+			if a.Done {
+				done++
 			}
 		}
-		best = max(best, n)
+		if done > bestDone {
+			best, bestDone = advs, done
+		}
 	}
 	return best
+}
+
+func countAdvancements(dir string) int {
+	n := 0
+	for _, a := range readAdvancements(dir) {
+		if a.Done {
+			n++
+		}
+	}
+	return n
+}
+
+// AdvancementProgress converts the player's advancements into the progress
+// file format of the mcwidgets advancement viewer: id -> true when done,
+// otherwise id -> {"criteria": {name: true}} for partial progress.
+func AdvancementProgress(dir string) map[string]any {
+	out := map[string]any{}
+	for id, a := range readAdvancements(dir) {
+		switch {
+		case a.Done:
+			out[id] = true
+		case len(a.Criteria) > 0:
+			criteria := map[string]bool{}
+			for name := range a.Criteria {
+				criteria[name] = true
+			}
+			out[id] = map[string]any{"criteria": criteria}
+		}
+	}
+	return out
 }
 
 // scanDisk sums file sizes and counts region files per dimension.
