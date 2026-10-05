@@ -46,7 +46,7 @@ Each world gets its own folder, named after the launcher and the world folder. I
 
 ## Development
 
-You need Go 1.26+, Node 24+, and pnpm.
+You need Go 1.26+ and Node 24+ (with npm).
 
 ```bash
 make test     # go vet, go test, TypeScript typecheck
@@ -57,7 +57,7 @@ For UI work, run the Go server and the Vite dev server side by side:
 
 ```bash
 make dev                  # API on 127.0.0.1:25599
-cd web && pnpm dev        # open the Vite URL with ?token=<token from config.json>
+cd web && npm run dev     # open the Vite URL with ?token=<token from config.json>
 ```
 
 The config lives in your user config directory: `%APPDATA%\worldkeeper\config.json` on Windows, `~/Library/Application Support/worldkeeper/config.json` on macOS, and `~/.config/worldkeeper/config.json` on Linux.
