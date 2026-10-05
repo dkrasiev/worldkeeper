@@ -38,6 +38,7 @@ Make what already shipped trustworthy before adding more.
 - [#26](https://github.com/dkrasiev/worldkeeper/issues/26) Bedrock Edition
 - [#27](https://github.com/dkrasiev/worldkeeper/issues/27) Mod and datapack advancements in the tree
 - [#28](https://github.com/dkrasiev/worldkeeper/issues/28) Other games via manifests
+- [#35](https://github.com/dkrasiev/worldkeeper/issues/35) Companion Minecraft mod: save from the pause menu, consistent backups while playing, in-game status
 
 ## Not planned
 
