@@ -1,0 +1,137 @@
+{
+  "info": {
+    "name": "New World",
+    "gameVersion": "26.3",
+    "dataVersion": 5023,
+    "gameMode": "survival",
+    "hardcore": false,
+    "lastPlayed": "2026-10-05T16:48:33.021Z",
+    "hasIcon": true,
+    "modded": false,
+    "snapshotVersion": false,
+    "difficulty": "normal",
+    "difficultyLocked": false,
+    "cheats": false,
+    "seed": "2762118087573245665",
+    "day": 0,
+    "weather": "clear",
+    "spawn": [
+      224,
+      66,
+      -160
+    ],
+    "brands": [
+      "vanilla"
+    ],
+    "dataPacks": {
+      "enabled": [
+        "vanilla"
+      ],
+      "disabled": [
+        "minecart_improvements",
+        "redstone_experiments",
+        "trade_rebalance"
+      ]
+    },
+    "gameRules": {
+      "minecraft:advance_time": "1",
+      "minecraft:advance_weather": "1",
+      "minecraft:allow_entering_nether_using_portals": "1",
+      "minecraft:block_drops": "1",
+      "minecraft:block_explosion_drop_decay": "1",
+      "minecraft:command_block_output": "1",
+      "minecraft:command_blocks_work": "1",
+      "minecraft:drowning_damage": "1",
+      "minecraft:elytra_movement_check": "1",
+      "minecraft:ender_pearls_vanish_on_death": "1",
+      "minecraft:entity_drops": "1",
+      "minecraft:fall_damage": "1",
+      "minecraft:fire_damage": "1",
+      "minecraft:fire_spread_radius_around_player": "128",
+      "minecraft:forgive_dead_players": "1",
+      "minecraft:freeze_damage": "1",
+      "minecraft:global_sound_events": "1",
+      "minecraft:immediate_respawn": "0",
+      "minecraft:keep_inventory": "0",
+      "minecraft:lava_source_conversion": "0",
+      "minecraft:limited_crafting": "0",
+      "minecraft:locator_bar": "1",
+      "minecraft:log_admin_commands": "1",
+      "minecraft:max_block_modifications": "32768",
+      "minecraft:max_command_forks": "65536",
+      "minecraft:max_command_sequence_length": "65536",
+      "minecraft:max_entity_cramming": "24",
+      "minecraft:max_snow_accumulation_height": "1",
+      "minecraft:mob_drops": "1",
+      "minecraft:mob_explosion_drop_decay": "1",
+      "minecraft:mob_griefing": "1",
+      "minecraft:natural_health_regeneration": "1",
+      "minecraft:player_movement_check": "1",
+      "minecraft:players_nether_portal_creative_delay": "0",
+      "minecraft:players_nether_portal_default_delay": "80",
+      "minecraft:players_sleeping_percentage": "100",
+      "minecraft:projectiles_can_break_blocks": "1",
+      "minecraft:pvp": "1",
+      "minecraft:raids": "1",
+      "minecraft:random_tick_speed": "3",
+      "minecraft:reduced_debug_info": "0",
+      "minecraft:respawn_radius": "10",
+      "minecraft:send_command_feedback": "1",
+      "minecraft:show_advancement_messages": "1",
+      "minecraft:show_death_messages": "1",
+      "minecraft:spawn_mobs": "1",
+      "minecraft:spawn_monsters": "1",
+      "minecraft:spawn_patrols": "1",
+      "minecraft:spawn_phantoms": "1",
+      "minecraft:spawn_wandering_traders": "1",
+      "minecraft:spawn_wardens": "1",
+      "minecraft:spawner_blocks_work": "1",
+      "minecraft:spectators_generate_chunks": "1",
+      "minecraft:spread_vines": "1",
+      "minecraft:tnt_explodes": "1",
+      "minecraft:tnt_explosion_drop_decay": "0",
+      "minecraft:universal_anger": "0",
+      "minecraft:water_source_conversion": "1"
+    },
+    "player": {
+      "dimension": "minecraft:overworld",
+      "pos": [
+        184.7681604704506,
+        64,
+        -66.35966668122211
+      ],
+      "health": 20,
+      "food": 20,
+      "xpLevel": 0
+    },
+    "stats": {
+      "playTimeSeconds": 150,
+      "deaths": 0,
+      "mobKills": 0,
+      "distanceMeters": 207,
+      "jumps": 25
+    },
+    "advancements": 3,
+    "sizeBytes": 20493,
+    "dimensions": [
+      {
+        "id": "minecraft:overworld",
+        "regionFiles": 9
+      }
+    ]
+  },
+  "advancementProgress": {
+    "minecraft:adventure/adventuring_time": {
+      "criteria": {
+        "minecraft:beach": true,
+        "minecraft:forest": true,
+        "minecraft:mangrove_swamp": true,
+        "minecraft:river": true,
+        "minecraft:windswept_savanna": true
+      }
+    },
+    "minecraft:story/mine_stone": true,
+    "minecraft:story/root": true,
+    "minecraft:story/upgrade_tools": true
+  }
+}

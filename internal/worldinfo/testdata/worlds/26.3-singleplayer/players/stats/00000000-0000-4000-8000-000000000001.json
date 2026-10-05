@@ -1,0 +1,52 @@
+{
+  "stats": {
+    "minecraft:custom": {
+      "minecraft:interact_with_crafting_table": 2,
+      "minecraft:time_since_rest": 3012,
+      "minecraft:walk_one_cm": 9566,
+      "minecraft:leave_game": 2,
+      "minecraft:damage_taken": 20,
+      "minecraft:play_time": 3012,
+      "minecraft:jump": 25,
+      "minecraft:time_since_death": 3012,
+      "minecraft:interact_with_furnace": 2,
+      "minecraft:sprint_one_cm": 5185,
+      "minecraft:fall_one_cm": 2382,
+      "minecraft:total_world_time": 3870,
+      "minecraft:fly_one_cm": 2717,
+      "minecraft:crouch_one_cm": 784,
+      "minecraft:sneak_time": 195,
+      "minecraft:climb_one_cm": 154
+    },
+    "minecraft:picked_up": {
+      "minecraft:oak_log": 6,
+      "minecraft:cobblestone": 22,
+      "minecraft:crafting_table": 1
+    },
+    "minecraft:mined": {
+      "minecraft:mangrove_leaves": 1,
+      "minecraft:crafting_table": 1,
+      "minecraft:vine": 1,
+      "minecraft:leaf_litter": 1,
+      "minecraft:oak_log": 6,
+      "minecraft:stone": 22
+    },
+    "minecraft:used": {
+      "minecraft:wooden_axe": 5,
+      "minecraft:crafting_table": 2,
+      "minecraft:wooden_pickaxe": 13,
+      "minecraft:furnace": 1,
+      "minecraft:stone_pickaxe": 9
+    },
+    "minecraft:crafted": {
+      "minecraft:stick": 12,
+      "minecraft:furnace": 1,
+      "minecraft:wooden_axe": 1,
+      "minecraft:wooden_pickaxe": 1,
+      "minecraft:oak_planks": 20,
+      "minecraft:stone_pickaxe": 1,
+      "minecraft:crafting_table": 1
+    }
+  },
+  "DataVersion": 5023
+}
