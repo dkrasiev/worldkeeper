@@ -43,3 +43,37 @@ checksum:
 
 changelog:
   use: github
+
+# Opens a pull request with the new version's manifests in
+# microsoft/winget-pkgs, from the fork dkrasiev/winget-pkgs. Needs the
+# WINGET_TOKEN secret (a token that can push to that fork); without it the
+# step is skipped and the release still succeeds.
+winget:
+  - name: Worldkeeper
+    package_identifier: dkrasiev.Worldkeeper
+    publisher: Dmitry Krasiev
+    publisher_url: https://github.com/dkrasiev
+    publisher_support_url: https://github.com/dkrasiev/worldkeeper/issues
+    author: Dmitry Krasiev
+    homepage: https://github.com/dkrasiev/worldkeeper
+    license: MIT
+    license_url: https://github.com/dkrasiev/worldkeeper/blob/main/LICENSE
+    release_notes_url: "https://github.com/dkrasiev/worldkeeper/releases/tag/{{ .Tag }}"
+    short_description: Automatic backups for Minecraft Java Edition worlds, taken when you exit a world.
+    description: |-
+      Worldkeeper backs up your Minecraft: Java Edition worlds the moment you exit them in the game, to any folder (a NAS share, an external drive, a cloud-sync folder) or a restic repository.
+      It finds worlds from the official launcher, Prism Launcher, CurseForge and the Modrinth App, shows what is in each world and each save, and restores any save in place or as a new world.
+      It runs in the system tray with a local web UI.
+    tags: [backup, minecraft, minecraft-java, restic, world-backup]
+    skip_upload: '{{ if not (index .Env "WINGET_TOKEN") }}true{{ end }}'
+    repository:
+      owner: dkrasiev
+      name: winget-pkgs
+      branch: "dkrasiev.Worldkeeper-{{ .Version }}"
+      token: '{{ index .Env "WINGET_TOKEN" }}'
+      pull_request:
+        enabled: true
+        base:
+          owner: microsoft
+          name: winget-pkgs
+          branch: master
