@@ -121,6 +121,17 @@ Plural entries use the CLDR categories (`one`, `few`, `many`, `other`, …) that
 
 **Dev builds.** Every pull request and every push to `main` gets a Windows x64 test build (`worldkeeper.exe`, versioned like `0.2.0-dev.abc1234`, after the next minor release), made once per commit. To get one, open the *Dev build* run for that commit in the [Actions tab](https://github.com/dkrasiev/worldkeeper/actions/workflows/dev-build.yml) and download it from *Artifacts*. You need to be signed in to GitHub, and artifacts are kept for 14 days. Dev builds are for testing and are not releases.
 
+### Pull requests and commits
+
+Pull requests are squash-merged: each one becomes a single commit on `main`, titled after the pull request. So the pull request title follows [Conventional Commits](https://www.conventionalcommits.org/): `type: what changed`, e.g. `feat: show progress for long backups` or `fix: no console window for restic on Windows`. Commits inside a pull request can be anything.
+
+| Type | For | In release notes |
+|---|---|---|
+| `feat` | new features | New features |
+| `fix`, `perf` | bug fixes, speedups | Bug fixes |
+| `build` | packaging, installers | Other changes |
+| `docs`, `test`, `ci`, `chore`, `refactor` | everything users do not see | left out |
+
 ### Releasing
 
 Pushing a `v*` tag builds the release: GoReleaser makes the archives and the GitHub release, and opens the winget pull request if the `WINGET_TOKEN` secret is set. The tag can be on any commit.
