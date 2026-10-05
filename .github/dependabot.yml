@@ -3,7 +3,6 @@ version: 2
 updates:
   - package-ecosystem: gomod
     directory: /
-    target-branch: develop
     schedule:
       interval: monthly
     groups:
@@ -12,7 +11,6 @@ updates:
 
   - package-ecosystem: npm
     directory: /web
-    target-branch: develop
     schedule:
       interval: monthly
     groups:
@@ -21,7 +19,6 @@ updates:
 
   - package-ecosystem: github-actions
     directory: /
-    target-branch: develop
     schedule:
       interval: monthly
     groups:
