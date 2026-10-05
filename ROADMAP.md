@@ -12,6 +12,7 @@ Make what already shipped trustworthy before adding more.
 - [#9](https://github.com/dkrasiev/worldkeeper/issues/9) Show progress for long backups and restores
 - [#10](https://github.com/dkrasiev/worldkeeper/issues/10) "Load as a new world" keeps the original world name
 - [#11](https://github.com/dkrasiev/worldkeeper/issues/11) Open-source housekeeping
+- [#44](https://github.com/dkrasiev/worldkeeper/issues/44) Publish to winget
 
 ## [v0.3](https://github.com/dkrasiev/worldkeeper/milestone/2): convenience
 
@@ -28,7 +29,7 @@ Make what already shipped trustworthy before adding more.
 - [#19](https://github.com/dkrasiev/worldkeeper/issues/19) Scheduled restic prune and check
 - [#20](https://github.com/dkrasiev/worldkeeper/issues/20) Move saves between zip and restic storage
 - [#21](https://github.com/dkrasiev/worldkeeper/issues/21) Periodic restore test
-- [#22](https://github.com/dkrasiev/worldkeeper/issues/22) Installers: winget, Scoop, Homebrew tap
+- [#22](https://github.com/dkrasiev/worldkeeper/issues/22) Installers: Scoop, Homebrew tap
 - [#23](https://github.com/dkrasiev/worldkeeper/issues/23) Decide on code signing and notarization
 
 ## [Later](https://github.com/dkrasiev/worldkeeper/milestone/4)
