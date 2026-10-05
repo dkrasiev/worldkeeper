@@ -15,6 +15,8 @@ Automatic backups for Minecraft: Java Edition worlds. Worldkeeper saves a world 
 - **Advancement tree.** The world page can show the in-game advancement screen with the player's progress, drawn by [mcwidgets](https://github.com/KabanFriends/mcwidgets). It is off until you click **Show advancement tree**: the widget loads from `mcwidgets.kaban.sh` in a sandboxed iframe, so it needs internet access, and the world's advancement progress is sent to that site. Only vanilla advancements are shown. Worldkeeper does not ship Minecraft textures itself.
 - **Plain zip files or a restic repository.** By default every save is an ordinary `.zip` file, so you can restore a world with any archive tool even without Worldkeeper. Alternatively, saves can go to a [restic](https://restic.net) repository: encrypted and deduplicated, so dozens of saves of a big world take little extra space.
 
+See the [roadmap](ROADMAP.md) for what is planned next.
+
 ## Install
 
 Download the archive for your OS from [Releases](https://github.com/dkrasiev/worldkeeper/releases), unpack it, and run `worldkeeper`. On the first start your browser opens the UI at `http://127.0.0.1:25599`.
