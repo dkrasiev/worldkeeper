@@ -40,7 +40,8 @@ type App struct {
 	eventsMu sync.Mutex
 	events   []Event
 
-	snapCache snapshotCache
+	snapCache  snapshotCache
+	lastBackup lastBackupCache
 }
 
 func New(cfg *config.Store, sec secrets.Store, env discovery.Env, log *slog.Logger) *App {
@@ -269,6 +270,7 @@ func (a *App) doBackup(w discovery.World, o BackupOptions) (snapshot.Snapshot, e
 	if err != nil {
 		return snapshot.Snapshot{}, err
 	}
+	a.lastBackup.noteBackup(a, snap.CreatedAt)
 	a.event(EventBackup, w.ID, sum.Name, CodeBackupSaved, map[string]string{"kind": string(o.Kind), "snapshot": snap.ID},
 		fmt.Sprintf("Saved %s snapshot %s", o.Kind, snap.ID))
 
@@ -360,6 +362,7 @@ func (a *App) extract(ix snapshot.Index, snapID, dest string) error {
 }
 
 func (a *App) DeleteSnapshot(worldID, snapID string) error {
+	defer a.lastBackup.invalidate() // the deleted save may have been the newest
 	return a.Snapshots().Delete(worldID, snapID)
 }
 

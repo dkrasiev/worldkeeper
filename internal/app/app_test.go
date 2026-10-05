@@ -280,3 +280,64 @@ func TestBackupChangedAndHealth(t *testing.T) {
 		t.Fatalf("health with failure = %+v", h)
 	}
 }
+
+func TestHealthReadsStorageOnlyOnce(t *testing.T) {
+	f := setup(t)
+	testworld.Create(t, f.saves, "w", testworld.Options{})
+	storage := f.app.Config.Get().StorageDir
+
+	if h := f.app.Health(); !h.LastBackup.IsZero() || h.Error != "" {
+		t.Fatalf("empty storage: %+v", h)
+	}
+	snap, err := f.app.Backup("minecraft--w", BackupOptions{Kind: snapshot.KindManual})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if h := f.app.Health(); !h.LastBackup.Equal(snap.CreatedAt) {
+		t.Fatalf("after backup: %+v, want %v", h, snap.CreatedAt)
+	}
+
+	// Storage gone (NAS asleep, unplugged): the tray keeps its answer
+	// because it no longer reads storage on every poll.
+	if err := os.RemoveAll(storage); err != nil {
+		t.Fatal(err)
+	}
+	if h := f.app.Health(); !h.LastBackup.Equal(snap.CreatedAt) || h.Error != "" {
+		t.Fatalf("cached health = %+v", h)
+	}
+
+	// New storage settings are read once. A restic engine whose binary is
+	// missing is unreadable on every OS (a file in place of the zip folder
+	// is not: Windows reports it as "not found", i.e. empty storage).
+	f.app.Config.Update(func(c *config.Config) error {
+		c.Engine = config.EngineRestic
+		c.Restic.Repo = filepath.Join(t.TempDir(), "repo")
+		c.Restic.Binary = filepath.Join(t.TempDir(), "no-restic")
+		return nil
+	})
+	if h := f.app.Health(); h.Error == "" || !h.LastBackup.IsZero() {
+		t.Fatalf("unreadable storage: %+v", h)
+	}
+
+	fresh := t.TempDir()
+	f.app.Config.Update(func(c *config.Config) error { c.Engine = config.EngineZip; c.StorageDir = fresh; return nil })
+	if h := f.app.Health(); h.Error != "" || !h.LastBackup.IsZero() {
+		t.Fatalf("fresh storage: %+v", h)
+	}
+}
+
+func TestHealthReloadsAfterDelete(t *testing.T) {
+	f := setup(t)
+	testworld.Create(t, f.saves, "w", testworld.Options{})
+	first, _ := f.app.Backup("minecraft--w", BackupOptions{Kind: snapshot.KindManual})
+	second, _ := f.app.Backup("minecraft--w", BackupOptions{Kind: snapshot.KindManual})
+	if h := f.app.Health(); !h.LastBackup.Equal(second.CreatedAt) {
+		t.Fatalf("health = %+v", h)
+	}
+	if err := f.app.DeleteSnapshot("minecraft--w", second.ID); err != nil {
+		t.Fatal(err)
+	}
+	if h := f.app.Health(); !h.LastBackup.Equal(first.CreatedAt) {
+		t.Fatalf("after deleting the newest: %+v, want %v", h, first.CreatedAt)
+	}
+}
