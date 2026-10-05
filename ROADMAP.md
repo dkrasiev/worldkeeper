@@ -21,6 +21,8 @@ Make what already shipped trustworthy before adding more.
 - [#15](https://github.com/dkrasiev/worldkeeper/issues/15) Daily / weekly / monthly retention (GFS)
 - [#16](https://github.com/dkrasiev/worldkeeper/issues/16) Compare a save with the current world
 - [#17](https://github.com/dkrasiev/worldkeeper/issues/17) Tray menu language follows the UI language
+- [#39](https://github.com/dkrasiev/worldkeeper/issues/39) Windows: app icon, version info and Start menu entry
+- [#40](https://github.com/dkrasiev/worldkeeper/issues/40) macOS: `Worldkeeper.app` bundle (Launchpad, Spotlight, menu bar only)
 
 ## [v0.4](https://github.com/dkrasiev/worldkeeper/milestone/3): storage and distribution
 
@@ -30,6 +32,7 @@ Make what already shipped trustworthy before adding more.
 - [#21](https://github.com/dkrasiev/worldkeeper/issues/21) Periodic restore test
 - [#22](https://github.com/dkrasiev/worldkeeper/issues/22) Installers: winget, Scoop, Homebrew tap
 - [#23](https://github.com/dkrasiev/worldkeeper/issues/23) Decide on code signing and notarization
+- [#41](https://github.com/dkrasiev/worldkeeper/issues/41) Linux: desktop entry, icons and `.deb`/`.rpm` packages
 
 ## [Later](https://github.com/dkrasiev/worldkeeper/milestone/4)
 
