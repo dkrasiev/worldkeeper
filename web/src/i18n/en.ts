@@ -59,6 +59,13 @@ export const en = {
   "detail.deleteBody": "{name} will be removed from storage. This cannot be undone.",
   "detail.deleted": "Save deleted.",
   "snap.before": "Before loading {name}",
+  "snapshot.open": "Show what is in this save",
+  "snapshot.backTo": "← {world}",
+  "snapshot.of": "Save of {world}",
+  "snapshot.reading": "Reading the save…",
+  "snapshot.contents": "In this save",
+  "snapshot.created": "Created",
+  "snapshot.notFound": "This save no longer exists.",
 
   "save.title": "Save world",
   "save.inUseWarning":

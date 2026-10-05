@@ -3,6 +3,7 @@ package restic
 import (
 	"context"
 	"errors"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/dkrasiev/worldkeeper/internal/snapshot"
 	"github.com/dkrasiev/worldkeeper/internal/testworld"
+	"github.com/dkrasiev/worldkeeper/internal/worldinfo"
 )
 
 // newRepo returns a store on a fresh repository. Tests need a real restic
@@ -152,5 +154,43 @@ func TestErrorMessage(t *testing.T) {
 	}
 	if got := errorMessage("plain text\n"); got != "plain text" {
 		t.Errorf("got %q", got)
+	}
+}
+
+func TestOpenListsAllAndRestoresOnlyMetadata(t *testing.T) {
+	s := newRepo(t)
+	world := testworld.Create(t, t.TempDir(), "w", testworld.Options{Layout26: true})
+	snap, err := s.Create(snapshot.WorldRef{ID: "w", Folder: "w"}, world, snapshot.Meta{Kind: snapshot.KindManual})
+	if err != nil {
+		t.Fatal(err)
+	}
+	fsys, closer, err := s.Open("w", snap.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tmp := string(closer.(removeDir))
+
+	info, err := worldinfo.ReadFS(fsys, "w")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want, _ := worldinfo.Read(world)
+	if info.Seed != want.Seed || info.Advancements != want.Advancements || info.Player == nil || info.Stats == nil {
+		t.Errorf("from restic = %+v", info)
+	}
+	// Sizes and regions come from the listing, without restoring regions.
+	if info.SizeBytes != want.SizeBytes-int64(len("☃")) || len(info.Dimensions) != 1 {
+		t.Errorf("size %d (dir %d), dims %+v", info.SizeBytes, want.SizeBytes, info.Dimensions)
+	}
+	if _, err := os.Stat(filepath.Join(tmp, "dimensions")); !os.IsNotExist(err) {
+		t.Error("region files must not be restored for a preview")
+	}
+	if _, err := fs.ReadFile(fsys, "dimensions/minecraft/overworld/region/r.0.0.mca"); err == nil {
+		t.Error("unrestored file should not be readable")
+	}
+
+	closer.Close()
+	if _, err := os.Stat(tmp); !os.IsNotExist(err) {
+		t.Error("temp dir not removed")
 	}
 }

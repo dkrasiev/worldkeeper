@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -76,8 +77,8 @@ type Dimension struct {
 var gameModes = map[int64]string{0: "survival", 1: "creative", 2: "adventure", 3: "spectator"}
 var difficulties = map[int64]string{0: "peaceful", 1: "easy", 2: "normal", 3: "hard"}
 
-func readLevel(dir string) (map[string]any, error) {
-	root, err := readNBT(filepath.Join(dir, "level.dat"))
+func readLevel(fsys fs.FS) (map[string]any, error) {
+	root, err := readNBT(fsys, "level.dat")
 	if err != nil {
 		return nil, fmt.Errorf("level.dat: %w", err)
 	}
@@ -90,11 +91,12 @@ func readLevel(dir string) (map[string]any, error) {
 
 // ReadSummary reads the fields needed for the world list.
 func ReadSummary(dir string) (Summary, error) {
-	data, err := readLevel(dir)
+	fsys := os.DirFS(dir)
+	data, err := readLevel(fsys)
 	if err != nil {
 		return Summary{}, err
 	}
-	return summary(dir, data), nil
+	return summary(fsys, filepath.Base(dir), data), nil
 }
 
 // LastPlayed is a fast change detector: it moves every time the world is saved.
@@ -103,7 +105,8 @@ func LastPlayed(dir string) (time.Time, error) {
 	return s.LastPlayed, err
 }
 
-func summary(dir string, d map[string]any) Summary {
+// summary uses folder as the name when level.dat has none.
+func summary(fsys fs.FS, folder string, d map[string]any) Summary {
 	s := Summary{
 		Name:        getString(d, "LevelName"),
 		GameVersion: getString(d, "Version.Name"),
@@ -111,7 +114,7 @@ func summary(dir string, d map[string]any) Summary {
 		Modded:      getBool(d, "WasModded"),
 	}
 	if s.Name == "" {
-		s.Name = filepath.Base(dir)
+		s.Name = folder
 	}
 	s.DataVersion, _ = getInt(d, "DataVersion", "Version.Id")
 	if gm, ok := getInt(d, "GameType", "Player.playerGameType"); ok {
@@ -120,20 +123,27 @@ func summary(dir string, d map[string]any) Summary {
 	if ms, ok := getInt(d, "LastPlayed"); ok && ms > 0 {
 		s.LastPlayed = time.UnixMilli(ms).UTC()
 	}
-	if _, err := os.Stat(filepath.Join(dir, "icon.png")); err == nil {
+	if _, err := fs.Stat(fsys, "icon.png"); err == nil {
 		s.HasIcon = true
 	}
 	return s
 }
 
-// Read gathers the full world info. Missing optional files are not errors.
+// Read gathers the full world info from a world folder.
 func Read(dir string) (Info, error) {
-	d, err := readLevel(dir)
+	return ReadFS(os.DirFS(dir), filepath.Base(dir))
+}
+
+// ReadFS gathers the full world info from any file system rooted at the
+// world folder: a directory, a zip snapshot or a restic snapshot. Missing
+// optional files are not errors. folder names the world if level.dat does not.
+func ReadFS(fsys fs.FS, folder string) (Info, error) {
+	d, err := readLevel(fsys)
 	if err != nil {
 		return Info{}, err
 	}
 	info := Info{
-		Summary:          summary(dir, d),
+		Summary:          summary(fsys, folder, d),
 		SnapshotVersion:  getBool(d, "Version.Snapshot"),
 		DifficultyLocked: getBool(d, "DifficultyLocked", "difficulty_settings.locked"),
 		Cheats:           getBool(d, "allowCommands"),
@@ -156,7 +166,7 @@ func Read(dir string) (Info, error) {
 	// level.dat; read whichever exists.
 	if seed, ok := getInt(d, "WorldGenSettings.seed", "RandomSeed"); ok {
 		info.Seed = strconv.FormatInt(seed, 10)
-	} else if seed, ok := getInt(readData(dir, "world_gen_settings"), "seed"); ok {
+	} else if seed, ok := getInt(readData(fsys, "world_gen_settings"), "seed"); ok {
 		info.Seed = strconv.FormatInt(seed, 10)
 	}
 	if t, ok := getInt(d, "DayTime", "Time"); ok {
@@ -164,7 +174,7 @@ func Read(dir string) (Info, error) {
 	}
 	weather := d
 	if _, ok := first(d, "raining", "thundering"); !ok {
-		weather = readData(dir, "weather")
+		weather = readData(fsys, "weather")
 	}
 	switch {
 	case getBool(weather, "thundering"):
@@ -183,7 +193,7 @@ func Read(dir string) (Info, error) {
 	}
 	rules := getMap(d, "GameRules", "game_rules")
 	if rules == nil {
-		rules = readData(dir, "game_rules")
+		rules = readData(fsys, "game_rules")
 	}
 	for k, v := range rules {
 		if k != "DataVersion" {
@@ -191,21 +201,21 @@ func Read(dir string) (Info, error) {
 		}
 	}
 
-	info.Player = readPlayer(dir, getMap(d, "Player"))
-	info.Stats = readStats(dir)
-	info.Advancements = countAdvancements(dir)
-	info.SizeBytes, info.Dimensions = scanDisk(dir)
+	info.Player = readPlayer(fsys, getMap(d, "Player"))
+	info.Stats = readStats(fsys)
+	info.Advancements = countAdvancements(fsys)
+	info.SizeBytes, info.Dimensions = scanDisk(fsys)
 	return info, nil
 }
 
-func readPlayer(dir string, p map[string]any) *Player {
+func readPlayer(fsys fs.FS, p map[string]any) *Player {
 	if p == nil {
 		// Newer versions may keep the singleplayer player only in playerdata/.
-		files := playerFiles(dir, "data", "*.dat")
+		files := playerFiles(fsys, "data", "*.dat")
 		if len(files) == 0 {
 			return nil
 		}
-		root, err := readNBT(files[0])
+		root, err := readNBT(fsys, files[0])
 		if err != nil {
 			return nil
 		}
@@ -232,20 +242,20 @@ func readPlayer(dir string, p map[string]any) *Player {
 // playerFiles finds per-player files in both world layouts: 26.x keeps
 // them under players/{data,stats,advancements}/, older versions under
 // playerdata/, stats/ and advancements/ at the world root.
-func playerFiles(dir, kind, pattern string) []string {
+func playerFiles(fsys fs.FS, kind, pattern string) []string {
 	legacy := kind
 	if kind == "data" {
 		legacy = "playerdata"
 	}
-	files, _ := filepath.Glob(filepath.Join(dir, "players", kind, pattern))
-	old, _ := filepath.Glob(filepath.Join(dir, legacy, pattern))
+	files, _ := fs.Glob(fsys, path.Join("players", kind, pattern))
+	old, _ := fs.Glob(fsys, path.Join(legacy, pattern))
 	return append(files, old...)
 }
 
 // readData reads the "data" compound of data/minecraft/<name>.dat (26.x).
 // A missing file yields nil, which the getters treat as "no value".
-func readData(dir, name string) map[string]any {
-	root, err := readNBT(filepath.Join(dir, "data", "minecraft", name+".dat"))
+func readData(fsys fs.FS, name string) map[string]any {
+	root, err := readNBT(fsys, path.Join("data", "minecraft", name+".dat"))
 	if err != nil {
 		return nil
 	}
@@ -254,11 +264,11 @@ func readData(dir, name string) map[string]any {
 
 // readStats picks the stats file with the most play time (in singleplayer
 // there is normally just one).
-func readStats(dir string) *Stats {
-	files := playerFiles(dir, "stats", "*.json")
+func readStats(fsys fs.FS) *Stats {
+	files := playerFiles(fsys, "stats", "*.json")
 	var best *Stats
 	for _, f := range files {
-		b, err := os.ReadFile(f)
+		b, err := fs.ReadFile(fsys, f)
 		if err != nil {
 			continue
 		}
@@ -301,12 +311,12 @@ type advancement struct {
 // readAdvancements returns the advancements file of the player with the most
 // completed advancements (in singleplayer there is normally just one).
 // Recipe unlocks are left out: the game tracks them as advancements too.
-func readAdvancements(dir string) map[string]advancement {
-	files := playerFiles(dir, "advancements", "*.json")
+func readAdvancements(fsys fs.FS) map[string]advancement {
+	files := playerFiles(fsys, "advancements", "*.json")
 	var best map[string]advancement
 	bestDone := -1
 	for _, f := range files {
-		b, err := os.ReadFile(f)
+		b, err := fs.ReadFile(fsys, f)
 		if err != nil {
 			continue
 		}
@@ -336,9 +346,9 @@ func readAdvancements(dir string) map[string]advancement {
 	return best
 }
 
-func countAdvancements(dir string) int {
+func countAdvancements(fsys fs.FS) int {
 	n := 0
-	for _, a := range readAdvancements(dir) {
+	for _, a := range readAdvancements(fsys) {
 		if a.Done {
 			n++
 		}
@@ -350,8 +360,13 @@ func countAdvancements(dir string) int {
 // file format of the mcwidgets advancement viewer: id -> true when done,
 // otherwise id -> {"criteria": {name: true}} for partial progress.
 func AdvancementProgress(dir string) map[string]any {
+	return AdvancementProgressFS(os.DirFS(dir))
+}
+
+// AdvancementProgressFS is AdvancementProgress for any world file system.
+func AdvancementProgressFS(fsys fs.FS) map[string]any {
 	out := map[string]any{}
-	for id, a := range readAdvancements(dir) {
+	for id, a := range readAdvancements(fsys) {
 		switch {
 		case a.Done:
 			out[id] = true
@@ -367,24 +382,20 @@ func AdvancementProgress(dir string) map[string]any {
 }
 
 // scanDisk sums file sizes and counts region files per dimension.
-func scanDisk(dir string) (int64, []Dimension) {
+func scanDisk(fsys fs.FS) (int64, []Dimension) {
 	var size int64
 	regions := map[string]int{}
-	_ = filepath.WalkDir(dir, func(path string, e fs.DirEntry, err error) error {
+	_ = fs.WalkDir(fsys, ".", func(name string, e fs.DirEntry, err error) error {
 		if err != nil || e.IsDir() {
 			return nil
 		}
 		if fi, err := e.Info(); err == nil {
 			size += fi.Size()
 		}
-		if filepath.Ext(path) != ".mca" || filepath.Base(filepath.Dir(path)) != "region" {
+		if path.Ext(name) != ".mca" || path.Base(path.Dir(name)) != "region" {
 			return nil
 		}
-		rel, err := filepath.Rel(dir, filepath.Dir(filepath.Dir(path)))
-		if err != nil {
-			return nil
-		}
-		regions[dimensionID(filepath.ToSlash(rel))]++
+		regions[dimensionID(path.Dir(path.Dir(name)))]++
 		return nil
 	})
 

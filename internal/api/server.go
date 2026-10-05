@@ -41,6 +41,8 @@ func New(a *app.App, ui fs.FS) http.Handler {
 	mux.HandleFunc("GET /api/worlds/{id}/advancements", s.advancements)
 	mux.HandleFunc("GET /api/worlds/{id}/snapshots", s.snapshots)
 	mux.HandleFunc("POST /api/worlds/{id}/snapshots", s.createSnapshot)
+	mux.HandleFunc("GET /api/worlds/{id}/snapshots/{snap}/info", s.snapshotInfo)
+	mux.HandleFunc("GET /api/worlds/{id}/snapshots/{snap}/advancements", s.snapshotAdvancements)
 	mux.HandleFunc("POST /api/worlds/{id}/snapshots/{snap}/restore", s.restore)
 	mux.HandleFunc("DELETE /api/worlds/{id}/snapshots/{snap}", s.deleteSnapshot)
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
@@ -138,6 +140,16 @@ func (s *Server) createSnapshot(w http.ResponseWriter, r *http.Request) {
 		Force: body.Force,
 	})
 	respond(w, snap, err)
+}
+
+func (s *Server) snapshotInfo(w http.ResponseWriter, r *http.Request) {
+	d, err := s.app.SnapshotDetails(r.PathValue("id"), r.PathValue("snap"))
+	respond(w, d.Info, err)
+}
+
+func (s *Server) snapshotAdvancements(w http.ResponseWriter, r *http.Request) {
+	d, err := s.app.SnapshotDetails(r.PathValue("id"), r.PathValue("snap"))
+	respond(w, d.Advancements, err)
 }
 
 func (s *Server) restore(w http.ResponseWriter, r *http.Request) {

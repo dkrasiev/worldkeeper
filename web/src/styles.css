@@ -626,3 +626,29 @@ select.lang {
   background: var(--surface-2);
   color: var(--text);
 }
+
+/* saves: rows link to the save page */
+a.snapshot-link {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+  border-radius: 6px;
+  margin: -4px -6px;
+  padding: 4px 6px;
+}
+a.snapshot-link:hover {
+  background: var(--surface-2);
+}
+a.snapshot-link:hover strong {
+  color: var(--accent);
+}
+.world-header > .header-actions {
+  flex: 0 0 auto;
+  flex-direction: row;
+  min-width: 0;
+  gap: 8px;
+}
+.snapshot-note {
+  margin: 4px 0 0;
+  white-space: pre-wrap;
+}

@@ -232,3 +232,27 @@ func TestRepeatedErrorsAreCollapsed(t *testing.T) {
 		t.Fatalf("events = %d, want 4", len(ev))
 	}
 }
+
+func TestSnapshotDetailsShowThePast(t *testing.T) {
+	f := setup(t)
+	dir := testworld.Create(t, f.saves, "w", testworld.Options{Name: "Old name", LastPlayed: 1000})
+	old, err := f.app.Backup("minecraft--w", BackupOptions{Kind: snapshot.KindManual})
+	if err != nil {
+		t.Fatal(err)
+	}
+	testworld.WriteLevel(t, dir, testworld.Options{Name: "New name", LastPlayed: 2000})
+
+	d, err := f.app.SnapshotDetails("minecraft--w", old.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d.Info.Name != "Old name" || d.Advancements["minecraft:story/root"] != true {
+		t.Errorf("snapshot details = %q, %v", d.Info.Name, d.Advancements)
+	}
+	if cur, _ := f.app.Info("minecraft--w"); cur.Name != "New name" {
+		t.Errorf("current = %q", cur.Name)
+	}
+	if _, err := f.app.SnapshotDetails("minecraft--w", "nope"); !errors.Is(err, snapshot.ErrNotFound) {
+		t.Errorf("unknown snapshot: %v", err)
+	}
+}
