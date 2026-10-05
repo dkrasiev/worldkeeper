@@ -13,6 +13,7 @@ import (
 	"github.com/dkrasiev/worldkeeper/internal/app"
 	"github.com/dkrasiev/worldkeeper/internal/config"
 	"github.com/dkrasiev/worldkeeper/internal/discovery"
+	"github.com/dkrasiev/worldkeeper/internal/secrets"
 	"github.com/dkrasiev/worldkeeper/internal/testworld"
 )
 
@@ -26,7 +27,7 @@ func newServer(t *testing.T) (http.Handler, string) {
 	cfg.Update(func(c *config.Config) error { c.StorageDir = storage; return nil })
 	env := discovery.Env{GOOS: "linux", Home: t.TempDir()}
 	testworld.Create(t, discovery.DefaultSavesDir(env), "w", testworld.Options{})
-	a := app.New(cfg, env, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	a := app.New(cfg, &secrets.Memory{}, env, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	ui := fstest.MapFS{"index.html": {Data: []byte("<html>ui</html>")}}
 	return New(a, ui), cfg.Get().Token
 }
@@ -67,6 +68,24 @@ func TestGuard(t *testing.T) {
 	}
 }
 
+func TestResticSettingsNeverEchoPassword(t *testing.T) {
+	h, token := newServer(t)
+	host := "127.0.0.1:25599"
+
+	if rec := do(h, "PUT", "/api/config", host, token, `{"engine":"restic","restic":{"repo":""},"keepAuto":5,"pollSeconds":15}`); rec.Code != 400 {
+		t.Errorf("restic without repo accepted: %d", rec.Code)
+	}
+	body := `{"engine":"restic","restic":{"repo":"/tmp/wk-repo"},"resticPassword":"s3cret","keepAuto":5,"pollSeconds":15}`
+	rec := do(h, "PUT", "/api/config", host, token, body)
+	if rec.Code != 200 {
+		t.Fatalf("put: %d %s", rec.Code, rec.Body)
+	}
+	rec = do(h, "GET", "/api/config", host, token, "")
+	if !strings.Contains(rec.Body.String(), `"resticPasswordSet":true`) || strings.Contains(rec.Body.String(), "s3cret") {
+		t.Errorf("config = %s", rec.Body)
+	}
+}
+
 func TestSnapshotFlow(t *testing.T) {
 	h, token := newServer(t)
 	host := "127.0.0.1:25599"
@@ -86,7 +105,7 @@ func TestSnapshotFlow(t *testing.T) {
 	if rec := do(h, "GET", "/api/config", host, token, ""); rec.Code != 200 || !strings.Contains(rec.Body.String(), `"extraSavesDirs":[]`) {
 		t.Errorf("config: %d %s", rec.Code, rec.Body)
 	}
-	if rec := do(h, "PUT", "/api/config", host, token, `{"storageDir":"relative","keepAuto":5,"pollSeconds":15}`); rec.Code != 400 {
+	if rec := do(h, "PUT", "/api/config", host, token, `{"engine":"zip","storageDir":"relative","keepAuto":5,"pollSeconds":15}`); rec.Code != 400 {
 		t.Errorf("relative storage dir accepted: %d", rec.Code)
 	}
 }

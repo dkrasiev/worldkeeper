@@ -12,8 +12,19 @@ import (
 	"time"
 )
 
+// Engines decide how snapshots are stored.
+const (
+	EngineZip    = "zip"    // one zip file per snapshot in StorageDir
+	EngineRestic = "restic" // a restic repository; restic must be installed
+)
+
 type Config struct {
-	// StorageDir is where snapshots are written: a local folder, a mounted
+	// Engine is EngineZip or EngineRestic.
+	Engine string `json:"engine"`
+	// Restic configures the restic engine. The password is kept in the OS
+	// credential store, never in this file.
+	Restic Restic `json:"restic"`
+	// StorageDir is where zip snapshots are written: a local folder, a mounted
 	// network share (\\NAS\backups) or a cloud-sync folder.
 	StorageDir string `json:"storageDir"`
 	// ExtraSavesDirs are additional "saves" folders to scan.
@@ -29,6 +40,16 @@ type Config struct {
 	Listen string `json:"listen"`
 	// Token protects the local API from other websites and local processes.
 	Token string `json:"token"`
+}
+
+type Restic struct {
+	// Repo is anything restic accepts: a path, sftp:user@host:/path, rest:http://...
+	Repo string `json:"repo"`
+	// Binary is the restic executable; empty means "restic" from PATH.
+	Binary string `json:"binary"`
+	// PasswordFile, when set, is used instead of the OS credential store
+	// (useful on Linux without a Secret Service).
+	PasswordFile string `json:"passwordFile"`
 }
 
 type Duration struct{ time.Duration }
@@ -51,6 +72,7 @@ func (d *Duration) UnmarshalJSON(b []byte) error {
 func Default() Config {
 	home, _ := os.UserHomeDir()
 	return Config{
+		Engine:         EngineZip,
 		StorageDir:     filepath.Join(home, "WorldkeeperBackups"),
 		ExtraSavesDirs: []string{},
 		KeepAuto:       20,
@@ -88,6 +110,9 @@ func Open(path string) (*Store, error) {
 		if err := json.Unmarshal(b, &s.cfg); err != nil {
 			return nil, err
 		}
+	}
+	if s.cfg.Engine == "" {
+		s.cfg.Engine = EngineZip // configs written before engines existed
 	}
 	if s.cfg.ExtraSavesDirs == nil {
 		s.cfg.ExtraSavesDirs = []string{} // "null" in a hand-edited file

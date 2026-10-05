@@ -24,13 +24,27 @@ const maxEvents = 100
 
 func (a *App) event(kind EventKind, worldID, world, msg string) {
 	e := Event{Time: time.Now().UTC(), Kind: kind, WorldID: worldID, World: world, Message: msg}
+	a.eventsMu.Lock()
+	defer a.eventsMu.Unlock()
+
+	// A retried failure repeats the same error every poll: refresh the
+	// existing entry instead of flooding the feed and the log.
+	for i, prev := range a.events {
+		if prev.WorldID != worldID {
+			continue
+		}
+		if prev.Kind == kind && prev.Message == msg && kind == EventError {
+			a.events[i].Time = e.Time
+			return
+		}
+		break
+	}
+
 	if kind == EventError {
 		a.Log.Error(msg, "world", worldID)
 	} else {
 		a.Log.Info(msg, "world", worldID)
 	}
-	a.eventsMu.Lock()
-	defer a.eventsMu.Unlock()
 	a.events = append([]Event{e}, a.events...)
 	if len(a.events) > maxEvents {
 		a.events = a.events[:maxEvents]

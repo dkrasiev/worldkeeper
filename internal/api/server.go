@@ -34,6 +34,8 @@ func New(a *app.App, ui fs.FS) http.Handler {
 	mux.HandleFunc("GET /api/events", s.events)
 	mux.HandleFunc("GET /api/config", s.getConfig)
 	mux.HandleFunc("PUT /api/config", s.putConfig)
+	mux.HandleFunc("POST /api/restic/check", s.resticCheck)
+	mux.HandleFunc("POST /api/restic/init", s.resticInit)
 	mux.HandleFunc("GET /api/worlds/{id}", s.worldInfo)
 	mux.HandleFunc("GET /api/worlds/{id}/icon", s.icon)
 	mux.HandleFunc("GET /api/worlds/{id}/snapshots", s.snapshots)
@@ -110,7 +112,7 @@ func (s *Server) icon(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) snapshots(w http.ResponseWriter, r *http.Request) {
-	ix, err := s.app.Store.Get(r.PathValue("id"))
+	ix, err := s.app.Snapshots().Get(r.PathValue("id"))
 	respond(w, ix, err)
 }
 
@@ -148,27 +150,59 @@ func (s *Server) deleteSnapshot(w http.ResponseWriter, r *http.Request) {
 	respond(w, map[string]bool{"ok": true}, err)
 }
 
-// settings is the user-editable part of the config; the token stays server side.
+// settings is the user-editable part of the config. The API token and
+// the restic password never leave the server; only "is it set" does.
 type settings struct {
-	StorageDir     string   `json:"storageDir"`
-	ExtraSavesDirs []string `json:"extraSavesDirs"`
-	KeepAuto       int      `json:"keepAuto"`
-	AutoBackup     bool     `json:"autoBackup"`
-	PollSeconds    int      `json:"pollSeconds"`
+	Engine         string        `json:"engine"`
+	StorageDir     string        `json:"storageDir"`
+	Restic         config.Restic `json:"restic"`
+	ExtraSavesDirs []string      `json:"extraSavesDirs"`
+	KeepAuto       int           `json:"keepAuto"`
+	AutoBackup     bool          `json:"autoBackup"`
+	PollSeconds    int           `json:"pollSeconds"`
+
+	ResticPasswordSet bool `json:"resticPasswordSet"` // response only
+	// ResticPassword is write-only: when non-empty it replaces the stored password.
+	ResticPassword string `json:"resticPassword,omitempty"`
 }
 
-func toSettings(c config.Config) settings {
+func (s *Server) toSettings(c config.Config) settings {
+	pwSet := c.Restic.PasswordFile != ""
+	if !pwSet && c.Restic.Repo != "" {
+		_, err := s.app.ResticPassword(c.Restic.Repo)
+		pwSet = err == nil
+	}
 	return settings{
-		StorageDir:     c.StorageDir,
-		ExtraSavesDirs: c.ExtraSavesDirs,
-		KeepAuto:       c.KeepAuto,
-		AutoBackup:     c.AutoBackup,
-		PollSeconds:    int(c.PollInterval.Seconds()),
+		Engine:            c.Engine,
+		StorageDir:        c.StorageDir,
+		Restic:            c.Restic,
+		ExtraSavesDirs:    c.ExtraSavesDirs,
+		KeepAuto:          c.KeepAuto,
+		AutoBackup:        c.AutoBackup,
+		PollSeconds:       int(c.PollInterval.Seconds()),
+		ResticPasswordSet: pwSet,
 	}
 }
 
 func (s *Server) getConfig(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, toSettings(s.app.Config.Get()))
+	writeJSON(w, http.StatusOK, s.toSettings(s.app.Config.Get()))
+}
+
+func (s *Server) resticCheck(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, s.app.Restic().Check(r.Context()))
+}
+
+func (s *Server) resticInit(w http.ResponseWriter, r *http.Request) {
+	store := s.app.Restic()
+	if st := store.Check(r.Context()); st.State != "missing" {
+		writeError(w, http.StatusConflict, "not_missing", "repository cannot be initialized: "+st.State+" "+st.Message)
+		return
+	}
+	if err := store.Init(r.Context()); err != nil {
+		respond(w, nil, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, store.Check(r.Context()))
 }
 
 func (s *Server) putConfig(w http.ResponseWriter, r *http.Request) {
@@ -176,8 +210,29 @@ func (s *Server) putConfig(w http.ResponseWriter, r *http.Request) {
 	if !decode(w, r, &in) {
 		return
 	}
+	in.Restic.Repo = strings.TrimSpace(in.Restic.Repo)
+	in.Restic.Binary = strings.TrimSpace(in.Restic.Binary)
+	in.Restic.PasswordFile = strings.TrimSpace(in.Restic.PasswordFile)
+	if in.Engine != config.EngineZip && in.Engine != config.EngineRestic {
+		writeError(w, http.StatusBadRequest, "bad_request", "unknown storage engine")
+		return
+	}
+	if in.Engine == config.EngineRestic && in.Restic.Repo == "" {
+		writeError(w, http.StatusBadRequest, "bad_request", "enter the restic repository")
+		return
+	}
+	if in.ResticPassword != "" {
+		if in.Restic.Repo == "" {
+			writeError(w, http.StatusBadRequest, "bad_request", "enter the restic repository before its password")
+			return
+		}
+		if err := s.app.Secrets.Set(app.ResticSecretKey(in.Restic.Repo), in.ResticPassword); err != nil {
+			writeError(w, http.StatusInternalServerError, "internal", "cannot save the password in the system keychain: "+err.Error()+". Use a password file instead.")
+			return
+		}
+	}
 	cfg, err := s.app.Config.Update(func(c *config.Config) error {
-		if !filepath.IsAbs(in.StorageDir) {
+		if in.Engine == config.EngineZip && !filepath.IsAbs(in.StorageDir) {
 			return badRequest("storage folder must be an absolute path")
 		}
 		if in.KeepAuto < 1 {
@@ -197,17 +252,21 @@ func (s *Server) putConfig(w http.ResponseWriter, r *http.Request) {
 			}
 			dirs = append(dirs, d)
 		}
-		if err := os.MkdirAll(in.StorageDir, 0o755); err != nil {
-			return badRequest("cannot use storage folder: " + err.Error())
+		if in.Engine == config.EngineZip {
+			if err := os.MkdirAll(in.StorageDir, 0o755); err != nil {
+				return badRequest("cannot use storage folder: " + err.Error())
+			}
+			c.StorageDir = filepath.Clean(in.StorageDir)
 		}
-		c.StorageDir = filepath.Clean(in.StorageDir)
+		c.Engine = in.Engine
+		c.Restic = in.Restic
 		c.ExtraSavesDirs = dirs
 		c.KeepAuto = in.KeepAuto
 		c.AutoBackup = in.AutoBackup
 		c.PollInterval = config.Duration{Duration: time.Duration(in.PollSeconds) * time.Second}
 		return nil
 	})
-	respond(w, toSettings(cfg), err)
+	respond(w, s.toSettings(cfg), err)
 }
 
 type badRequest string

@@ -12,7 +12,7 @@ Automatic backups for Minecraft: Java Edition worlds. Worldkeeper saves a world 
 - **Named saves.** Click "Save now" before fighting the Ender Dragon. Rotation only removes automatic saves and never deletes named ones.
 - **Load any save.** You can replace the current world or load the save as a new world next to it. Before replacing, Worldkeeper makes a safety save of the current state, so every restore can be undone.
 - **World info read from the files:** version, mode, difficulty, seed, in-game day, weather, spawn, player position, health and level, play time, deaths, mobs killed, distance travelled, advancements, size on disk, explored regions per dimension, data packs, game rules, and mod loaders.
-- **Plain zip files.** Every save is an ordinary `.zip` file. If Worldkeeper disappears tomorrow, you can still restore a world with any archive tool.
+- **Plain zip files or a restic repository.** By default every save is an ordinary `.zip` file, so you can restore a world with any archive tool even without Worldkeeper. Alternatively, saves can go to a [restic](https://restic.net) repository: encrypted and deduplicated, so dozens of saves of a big world take little extra space.
 
 ## Install
 
@@ -26,7 +26,24 @@ To start Worldkeeper with your computer:
 - **macOS:** add it under System Settings → General → Login Items.
 - **Linux:** use a systemd user service or your desktop's autostart.
 
-## Where backups go
+## Restic storage (optional)
+
+1. Install restic 0.17 or newer: `winget install restic.restic` (Windows), `brew install restic` (macOS), or your package manager.
+2. In **Settings**, choose **Restic repository**. Enter the repository (a folder or network share, `sftp:user@host:/path`, `rest:http://...`, and so on) and a password.
+3. Click **Save settings**. If nothing is stored there yet, click **Initialize repository**.
+
+The password is kept in the system keychain (Keychain, Windows Credential Manager, or Secret Service), never in the config file. On Linux without a Secret Service, use **Advanced → Password file**. **If you lose the password, the backups cannot be restored.**
+
+Each save is a restic snapshot tagged `wk`, `world:<id>`, and `kind:auto|manual|pre-restore`, so you can work with it using plain restic too:
+
+```bash
+restic -r <repo> snapshots --tag wk
+restic -r <repo> restore <snapshot-id> --target ./restored-world
+```
+
+Worlds are backed up from inside their folder, so a restore puts the world files directly into the target folder.
+
+## Where zip backups go
 
 ```
 <backup folder>/
@@ -41,8 +58,9 @@ Each world gets its own folder, named after the launcher and the world folder. I
 ## Limitations
 
 - Java Edition only. Bedrock is not supported.
+- Switching between zip and restic does not migrate existing saves. Each storage keeps its own saves.
 - The UI is in English.
-- Worldkeeper backs up the whole world folder on every save, with no deduplication. Large worlds with many saves take a lot of space, so tune "Automatic saves to keep" in Settings.
+- With zip storage, every save contains the whole world. Large worlds with many saves take a lot of space, so use restic storage or lower "Automatic saves to keep" in Settings.
 
 ## Development
 
@@ -69,7 +87,9 @@ The config lives in your user config directory: `%APPDATA%\worldkeeper\config.js
 | `internal/discovery` | Known launcher paths per OS and the world scan |
 | `internal/worldinfo` | Parses `level.dat` (NBT), stats, advancements, and disk usage |
 | `internal/lock` | Checks whether the game holds `session.lock` |
-| `internal/snapshot` | Zip snapshots, index, rotation, extraction |
+| `internal/snapshot` | Storage backend interface; zip snapshots, index, rotation, extraction |
+| `internal/restic` | Restic backend: runs the `restic` CLI, maps snapshots to tags |
+| `internal/secrets` | Keeps the restic password in the OS credential store |
 | `internal/app` | Backup and restore logic, auto-backup watcher, activity feed |
 | `internal/api` | Local HTTP API (loopback only, token protected) and the embedded UI |
 | `web/` | React + Vite UI |
