@@ -89,6 +89,9 @@ func Open(path string) (*Store, error) {
 			return nil, err
 		}
 	}
+	if s.cfg.ExtraSavesDirs == nil {
+		s.cfg.ExtraSavesDirs = []string{} // "null" in a hand-edited file
+	}
 	if s.cfg.Token == "" {
 		s.cfg.Token = newToken()
 	}
@@ -102,7 +105,8 @@ func (s *Store) Get() Config {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	c := s.cfg
-	c.ExtraSavesDirs = append([]string(nil), s.cfg.ExtraSavesDirs...)
+	// Copy into a non-nil slice: a nil slice encodes as JSON null, not [].
+	c.ExtraSavesDirs = append([]string{}, s.cfg.ExtraSavesDirs...)
 	return c
 }
 

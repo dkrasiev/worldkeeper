@@ -82,6 +82,10 @@ func TestSnapshotFlow(t *testing.T) {
 	if rec := do(h, "GET", "/api/worlds/nope", host, token, ""); rec.Code != 404 {
 		t.Errorf("unknown world: %d", rec.Code)
 	}
+	// Regression: an empty list must be [], not null, or the settings page crashes.
+	if rec := do(h, "GET", "/api/config", host, token, ""); rec.Code != 200 || !strings.Contains(rec.Body.String(), `"extraSavesDirs":[]`) {
+		t.Errorf("config: %d %s", rec.Code, rec.Body)
+	}
 	if rec := do(h, "PUT", "/api/config", host, token, `{"storageDir":"relative","keepAuto":5,"pollSeconds":15}`); rec.Code != 400 {
 		t.Errorf("relative storage dir accepted: %d", rec.Code)
 	}
