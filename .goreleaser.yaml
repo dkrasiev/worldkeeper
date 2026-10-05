@@ -7,6 +7,11 @@ before:
 # Runs on a macOS runner (see .github/workflows/release.yml): the macOS menu
 # bar icon needs cgo, which only a Mac can build. Windows and Linux builds
 # are pure Go.
+# Dev builds (goreleaser release --snapshot, see dev-build.yml) are
+# versioned after the next patch release, e.g. 0.1.1-dev.abc1234.
+snapshot:
+  version_template: "{{ incpatch .Version }}-dev.{{ .ShortCommit }}"
+
 builds:
   - id: darwin
     main: ./cmd/worldkeeper

@@ -1,0 +1,76 @@
+name: Dev build
+
+# Test builds of main for every platform, made only from commits whose CI
+# passed. They are uploaded as workflow artifacts (not as a release), so no
+# tag is moved and nothing is published to winget.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dev-build
+  cancel-in-progress: true # only the newest main matters
+
+jobs:
+  build:
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    runs-on: macos-latest # cgo for the macOS menu bar icon, like releases
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # workflow_run checks out the default branch head by default; build
+          # exactly the commit that passed CI.
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          fetch-depth: 0 # GoReleaser derives the version from tags
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: goreleaser/goreleaser-action@v6
+        with:
+          version: "~> v2"
+          args: release --snapshot --clean --skip=winget
+
+      - name: Version
+        id: version
+        run: echo "version=$(jq -r .version dist/metadata.json)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: worldkeeper-${{ steps.version.outputs.version }}-windows
+          path: dist/*_windows_*.zip
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        with:
+          name: worldkeeper-${{ steps.version.outputs.version }}-macos
+          path: dist/*_darwin_*.tar.gz
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        with:
+          name: worldkeeper-${{ steps.version.outputs.version }}-linux
+          path: dist/*_linux_*.tar.gz
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        with:
+          name: worldkeeper-${{ steps.version.outputs.version }}-checksums
+          path: dist/checksums.txt
+          retention-days: 14
+
+      - name: Summary
+        run: |
+          {
+            echo "### Dev build ${{ steps.version.outputs.version }}"
+            echo
+            echo "Commit \`${{ github.event.workflow_run.head_sha || github.sha }}\`. Test build, not a release. Download from **Artifacts** below (kept for 14 days)."
+          } >> "$GITHUB_STEP_SUMMARY"
