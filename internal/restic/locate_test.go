@@ -14,7 +14,7 @@ func TestCandidatesWindows(t *testing.T) {
 	if len(got) == 0 || got[0] != want {
 		t.Fatalf("first candidate = %v, want winget links %q", got, want)
 	}
-	for _, needle := range []string{"scoop", "chocolatey", "restic.restic_*"} {
+	for _, needle := range []string{"scoop", "chocolatey", "restic.restic_*", filepath.Join("Links", "restic_*.exe")} {
 		if !strings.Contains(strings.Join(got, "|"), needle) {
 			t.Errorf("no %s candidate in %v", needle, got)
 		}
@@ -25,6 +25,37 @@ func TestCandidatesMacIncludeHomebrew(t *testing.T) {
 	got := strings.Join(candidates("darwin", os.Getenv, "/Users/steve"), "|")
 	if !strings.Contains(got, "/opt/homebrew/bin/restic") || !strings.Contains(got, "/usr/local/bin/restic") {
 		t.Errorf("candidates = %s", got)
+	}
+}
+
+func TestFirstFilePrefersNewestVersion(t *testing.T) {
+	links := t.TempDir()
+	for _, name := range []string{"restic_0.9.6_windows_amd64.exe", "restic_0.19.1_windows_amd64.exe", "restic_0.18.0_windows_amd64.exe"} {
+		if err := os.WriteFile(filepath.Join(links, name), nil, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	patterns := []string{filepath.Join(links, "restic.exe"), filepath.Join(links, "restic_*.exe")}
+	if got := firstFile(patterns); filepath.Base(got) != "restic_0.19.1_windows_amd64.exe" {
+		t.Errorf("firstFile = %q, want the 0.19.1 executable", got)
+	}
+	// An exact name in an earlier pattern still wins.
+	if err := os.WriteFile(filepath.Join(links, "restic.exe"), nil, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if got := firstFile(patterns); filepath.Base(got) != "restic.exe" {
+		t.Errorf("firstFile = %q, want restic.exe", got)
+	}
+}
+
+func TestNewer(t *testing.T) {
+	for _, c := range []struct {
+		a, b string
+		want bool
+	}{{"0.19.1", "0.9.6", true}, {"0.9.6", "0.19.1", false}, {"1.0.0", "1.0.0", false}, {"0.1.0", "", true}, {"", "0.1.0", false}} {
+		if got := newer(c.a, c.b); got != c.want {
+			t.Errorf("newer(%q, %q) = %v", c.a, c.b, got)
+		}
 	}
 }
 
