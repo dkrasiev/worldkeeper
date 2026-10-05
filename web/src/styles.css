@@ -615,3 +615,14 @@ label.check input {
 .copy-status:empty {
   display: none;
 }
+
+/* language switcher */
+select.lang {
+  font: inherit;
+  margin-left: 8px;
+  padding: 5px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+}

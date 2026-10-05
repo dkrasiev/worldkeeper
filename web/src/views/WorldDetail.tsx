@@ -1,10 +1,24 @@
 import { useState } from "react";
 import { api, ApiError, type RestoreMode, type Snapshot, type WorldInfo } from "../api";
 import { Field, KindBadge, Modal, ModeBadge, WorldIcon } from "../components/ui";
-import { bytes, capitalize, dateTime, dimensionName, duration, num, relative } from "../format";
 import { CopyText } from "../components/CopyText";
-import { useLoad } from "../hooks";
 import { AdvancementsPanel } from "../components/Advancements";
+import { useFormat } from "../format";
+import { useLoad } from "../hooks";
+import { useI18n } from "../i18n";
+
+// Safety snapshots store only what they preceded ("“Label”" or a date);
+// labels written by older versions carried an English prefix.
+const legacyPrefix = /^(Before loading |before restoring )/;
+
+function useSnapTitle() {
+  const { t } = useI18n();
+  const f = useFormat();
+  return (s: Snapshot) => {
+    if (s.kind === "pre-restore" && s.label) return t("snap.before", { name: s.label.replace(legacyPrefix, "") });
+    return s.label || f.dateTime(s.createdAt);
+  };
+}
 
 type Dialog =
   | { type: "save"; force?: boolean }
@@ -12,6 +26,9 @@ type Dialog =
   | { type: "delete"; snap: Snapshot };
 
 export function WorldDetail({ id, onBack }: { id: string; onBack: () => void }) {
+  const { t, errorText } = useI18n();
+  const f = useFormat();
+  const title = useSnapTitle();
   const info = useLoad(() => api.world(id), [id], 5000);
   const snaps = useLoad(() => api.snapshots(id), [id], 5000);
   const [dialog, setDialog] = useState<Dialog>();
@@ -36,17 +53,17 @@ export function WorldDetail({ id, onBack }: { id: string; onBack: () => void }) 
         setDialog({ type: "save", force: true });
         return;
       }
-      setNotice({ ok: false, text: (e as Error).message });
+      setNotice({ ok: false, text: errorText(e) });
       setDialog(undefined);
     }
   };
 
-  if (info.loading && snaps.loading) return <p className="muted">Loading…</p>;
+  if (info.loading && snaps.loading) return <p className="muted">{t("common.loading")}</p>;
 
   return (
     <>
       <button className="link" onClick={onBack}>
-        ← All worlds
+        {t("detail.back")}
       </button>
 
       <header className="world-header">
@@ -56,14 +73,14 @@ export function WorldDetail({ id, onBack }: { id: string; onBack: () => void }) 
           <div className="world-meta">
             {world && <ModeBadge mode={world.gameMode} hardcore={world.hardcore} />}
             {world?.gameVersion && <span className="badge">{world.gameVersion}</span>}
-            {world?.inUse && <span className="status live">In game</span>}
-            {missing && <span className="status warn">Not on this computer</span>}
+            {world?.inUse && <span className="status live">{t("status.inGame")}</span>}
+            {missing && <span className="status warn">{t("status.notHere")}</span>}
           </div>
           <div className="muted small mono">{world?.path ?? ref?.path}</div>
         </div>
         {world && (
           <button className="primary" onClick={() => setDialog({ type: "save" })}>
-            Save now
+            {t("detail.saveNow")}
           </button>
         )}
       </header>
@@ -73,29 +90,29 @@ export function WorldDetail({ id, onBack }: { id: string; onBack: () => void }) 
           {notice.text}
         </div>
       )}
-      {info.error && !missing && <div className="callout error">{info.error.message}</div>}
+      {info.error && !missing && <div className="callout error">{errorText(info.error)}</div>}
 
       <div className="columns">
         <section className="panel">
-          <h2>Saves</h2>
-          {list.length === 0 && <p className="muted">No saves yet. They appear here after you close the world in the game.</p>}
+          <h2>{t("detail.saves")}</h2>
+          {list.length === 0 && <p className="muted">{t("detail.noSaves")}</p>}
           <ul className="snapshots">
             {list.map((s) => (
               <li key={s.id} className="snapshot">
                 <div className="snapshot-main">
                   <div>
-                    <KindBadge kind={s.kind} /> <strong>{s.label || dateTime(s.createdAt)}</strong>
+                    <KindBadge kind={s.kind} /> <strong>{title(s)}</strong>
                   </div>
                   {s.note && <div className="small">{s.note}</div>}
                   <div className="muted small">
-                    {s.label && <>{dateTime(s.createdAt)} · </>}
-                    {bytes(s.sizeBytes)}
+                    {s.label && <>{f.dateTime(s.createdAt)} · </>}
+                    {f.bytes(s.sizeBytes)}
                     {s.gameVersion && <> · {s.gameVersion}</>}
                   </div>
                 </div>
                 <div className="snapshot-actions">
-                  <button onClick={() => setDialog({ type: "load", snap: s })}>Load</button>
-                  <button className="ghost" title="Delete" onClick={() => setDialog({ type: "delete", snap: s })}>
+                  <button onClick={() => setDialog({ type: "load", snap: s })}>{t("common.load")}</button>
+                  <button className="ghost" title={t("common.delete")} aria-label={t("common.delete")} onClick={() => setDialog({ type: "delete", snap: s })}>
                     ✕
                   </button>
                 </div>
@@ -116,42 +133,40 @@ export function WorldDetail({ id, onBack }: { id: string; onBack: () => void }) 
           onSave={(label, note) =>
             run(async () => {
               const s = await api.save(id, label, note, dialog.force);
-              return `Saved “${s.label || dateTime(s.createdAt)}”.`;
+              return t("detail.saved", { name: title(s) });
             })
           }
         />
       )}
       {dialog?.type === "load" && (
         <LoadDialog
-          snap={dialog.snap}
+          title={title(dialog.snap)}
           missing={missing}
           inUse={!!world?.inUse}
           onClose={() => setDialog(undefined)}
           onLoad={(mode) =>
             run(async () => {
               const r = await api.restore(id, dialog.snap.id, mode);
-              return `Loaded into ${r.path}`;
+              return t("detail.loadedInto", { path: r.path });
             })
           }
         />
       )}
       {dialog?.type === "delete" && (
-        <Modal title="Delete this save?" onClose={() => setDialog(undefined)}>
-          <p>
-            {dialog.snap.label || dateTime(dialog.snap.createdAt)} will be removed from storage. This cannot be undone.
-          </p>
+        <Modal title={t("detail.deleteTitle")} onClose={() => setDialog(undefined)}>
+          <p>{t("detail.deleteBody", { name: title(dialog.snap) })}</p>
           <div className="actions">
-            <button onClick={() => setDialog(undefined)}>Cancel</button>
+            <button onClick={() => setDialog(undefined)}>{t("common.cancel")}</button>
             <button
               className="danger"
               onClick={() =>
                 run(async () => {
                   await api.deleteSnapshot(id, dialog.snap.id);
-                  return "Save deleted.";
+                  return t("detail.deleted");
                 })
               }
             >
-              Delete
+              {t("common.delete")}
             </button>
           </div>
         </Modal>
@@ -169,11 +184,12 @@ function SaveDialog({
   onClose: () => void;
   onSave: (label: string, note: string) => void;
 }) {
+  const { t } = useI18n();
   const [label, setLabel] = useState("");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   return (
-    <Modal title="Save world" onClose={onClose}>
+    <Modal title={t("save.title")} onClose={onClose}>
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -182,25 +198,22 @@ function SaveDialog({
         }}
       >
         {force && (
-          <div className="callout warn">
-            The world is open in the game right now. The game keeps writing to it, so this save may be inconsistent.
-            For a clean save, exit to the title screen first.
-          </div>
+          <div className="callout warn">{t("save.inUseWarning")}</div>
         )}
         <label>
-          Name
-          <input autoFocus value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Before the Ender Dragon" />
+          {t("save.name")}
+          <input autoFocus value={label} onChange={(e) => setLabel(e.target.value)} placeholder={t("save.namePlaceholder")} />
         </label>
         <label>
-          Note
-          <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} placeholder="Optional" />
+          {t("save.note")}
+          <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} placeholder={t("save.optional")} />
         </label>
         <div className="actions">
           <button type="button" onClick={onClose}>
-            Cancel
+            {t("common.cancel")}
           </button>
           <button className={force ? "danger" : "primary"} disabled={busy}>
-            {busy ? "Saving…" : force ? "Save anyway" : "Save"}
+            {busy ? t("save.saving") : force ? t("save.anyway") : t("save.save")}
           </button>
         </div>
       </form>
@@ -209,47 +222,48 @@ function SaveDialog({
 }
 
 function LoadDialog({
-  snap,
+  title,
   missing,
   inUse,
   onClose,
   onLoad,
 }: {
-  snap: Snapshot;
+  title: string;
   missing: boolean;
   inUse: boolean;
   onClose: () => void;
   onLoad: (mode: RestoreMode) => void;
 }) {
+  const { t } = useI18n();
   const [busy, setBusy] = useState(false);
   const go = (mode: RestoreMode) => {
     setBusy(true);
     onLoad(mode);
   };
   return (
-    <Modal title={`Load “${snap.label || dateTime(snap.createdAt)}”`} onClose={onClose}>
+    <Modal title={t("load.title", { name: title })} onClose={onClose}>
       {missing ? (
-        <p>The world will be restored to its original folder, or into the default saves folder if that is taken.</p>
+        <p>{t("load.missingHint")}</p>
       ) : (
         <>
-          {inUse && <div className="callout warn">Exit the world in the game before replacing it.</div>}
+          {inUse && <div className="callout warn">{t("load.exitFirst")}</div>}
           <div className="choice">
             <button className="choice-btn" disabled={busy || inUse} onClick={() => go("replace")}>
-              <strong>Replace current world</strong>
-              <span>The current state is saved first as a “Safety” save, so you can always go back.</span>
+              <strong>{t("load.replace")}</strong>
+              <span>{t("load.replaceHint")}</span>
             </button>
             <button className="choice-btn" disabled={busy} onClick={() => go("copy")}>
-              <strong>Load as a new world</strong>
-              <span>Unpacks next to the original. Nothing is overwritten.</span>
+              <strong>{t("load.copy")}</strong>
+              <span>{t("load.copyHint")}</span>
             </button>
           </div>
         </>
       )}
       <div className="actions">
-        <button onClick={onClose}>Cancel</button>
+        <button onClick={onClose}>{t("common.cancel")}</button>
         {missing && (
           <button className="primary" disabled={busy} onClick={() => go("replace")}>
-            {busy ? "Restoring…" : "Restore"}
+            {busy ? t("load.restoring") : t("load.restore")}
           </button>
         )}
       </div>
@@ -258,63 +272,63 @@ function LoadDialog({
 }
 
 function InfoPanel({ w }: { w: WorldInfo }) {
+  const { t } = useI18n();
+  const f = useFormat();
   const pos = w.player?.pos?.map((n) => Math.floor(n)).join(", ");
   const rules = Object.entries(w.gameRules).sort(([a], [b]) => a.localeCompare(b));
   return (
     <section className="panel">
-      <h2>World</h2>
+      <h2>{t("info.world")}</h2>
       <dl className="fields">
-        <Field label="Last played">
-          {dateTime(w.lastPlayed)} <span className="muted">({relative(w.lastPlayed)})</span>
+        <Field label={t("info.lastPlayed")}>
+          {f.dateTime(w.lastPlayed)} <span className="muted">({f.relative(w.lastPlayed)})</span>
         </Field>
-        <Field label="Difficulty">
-          {capitalize(w.difficulty)}
-          {w.difficultyLocked && " (locked)"}
+        <Field label={t("info.difficulty")}>
+          {f.label("difficulty", w.difficulty)}
+          {w.difficultyLocked && ` ${t("info.locked")}`}
         </Field>
-        <Field label="Cheats">{w.cheats ? "On" : "Off"}</Field>
-        <Field label="Seed">
-          {w.seed ? <CopyText text={w.seed} /> : "—"}
-        </Field>
-        <Field label="Day">{num(w.day)}</Field>
-        <Field label="Weather">{capitalize(w.weather)}</Field>
-        {w.spawn && <Field label="World spawn">{w.spawn.join(", ")}</Field>}
-        <Field label="Size on disk">{bytes(w.sizeBytes)}</Field>
-        {w.brands.length > 0 && <Field label="Loaders">{w.brands.join(", ")}</Field>}
+        <Field label={t("info.cheats")}>{w.cheats ? t("common.on") : t("common.off")}</Field>
+        <Field label={t("info.seed")}>{w.seed ? <CopyText text={w.seed} /> : "—"}</Field>
+        <Field label={t("info.day")}>{f.num(w.day)}</Field>
+        <Field label={t("info.weather")}>{f.label("weather", w.weather)}</Field>
+        {w.spawn && <Field label={t("info.spawn")}>{w.spawn.join(", ")}</Field>}
+        <Field label={t("info.size")}>{f.bytes(w.sizeBytes)}</Field>
+        {w.brands.length > 0 && <Field label={t("info.loaders")}>{w.brands.join(", ")}</Field>}
       </dl>
 
       {w.player && (
         <>
-          <h3>Player</h3>
+          <h3>{t("info.player")}</h3>
           <dl className="fields">
-            <Field label="Dimension">{dimensionName(w.player.dimension)}</Field>
-            {pos && <Field label="Position">{pos}</Field>}
-            <Field label="Health">{w.player.health / 2} ❤</Field>
-            <Field label="Food">{w.player.food / 2} 🍗</Field>
-            <Field label="Level">{w.player.xpLevel}</Field>
+            <Field label={t("info.dimension")}>{f.dimension(w.player.dimension)}</Field>
+            {pos && <Field label={t("info.position")}>{pos}</Field>}
+            <Field label={t("info.health")}>{f.num(w.player.health / 2)} ❤</Field>
+            <Field label={t("info.food")}>{f.num(w.player.food / 2)} 🍗</Field>
+            <Field label={t("info.level")}>{w.player.xpLevel}</Field>
           </dl>
         </>
       )}
 
       {w.stats && (
         <>
-          <h3>Statistics</h3>
+          <h3>{t("info.stats")}</h3>
           <dl className="fields">
-            <Field label="Play time">{duration(w.stats.playTimeSeconds)}</Field>
-            <Field label="Deaths">{num(w.stats.deaths)}</Field>
-            <Field label="Mobs killed">{num(w.stats.mobKills)}</Field>
-            <Field label="Distance travelled">{num(Math.round(w.stats.distanceMeters / 1000))} km</Field>
-            <Field label="Jumps">{num(w.stats.jumps)}</Field>
-            <Field label="Advancements">{w.advancements}</Field>
+            <Field label={t("info.playTime")}>{f.duration(w.stats.playTimeSeconds)}</Field>
+            <Field label={t("info.deaths")}>{f.num(w.stats.deaths)}</Field>
+            <Field label={t("info.mobKills")}>{f.num(w.stats.mobKills)}</Field>
+            <Field label={t("info.distance")}>{f.km(w.stats.distanceMeters)}</Field>
+            <Field label={t("info.jumps")}>{f.num(w.stats.jumps)}</Field>
+            <Field label={t("info.advancements")}>{w.advancements}</Field>
           </dl>
         </>
       )}
 
-      <h3>Dimensions</h3>
+      <h3>{t("info.dimensions")}</h3>
       <dl className="fields">
         {w.dimensions.map((d) => (
-          <Field key={d.id} label={dimensionName(d.id)}>
-            {d.regionFiles} region{d.regionFiles === 1 ? "" : "s"}{" "}
-            <span className="muted">(~{num(d.regionFiles * 0.262144)} km²)</span>
+          <Field key={d.id} label={f.dimension(d.id)}>
+            {t("info.regions", { count: d.regionFiles })}{" "}
+            <span className="muted">({t("info.area", { value: Math.round(d.regionFiles * 0.262144 * 100) / 100 })})</span>
           </Field>
         ))}
       </dl>
@@ -322,7 +336,7 @@ function InfoPanel({ w }: { w: WorldInfo }) {
       {(w.dataPacks.enabled.length > 0 || rules.length > 0) && (
         <>
           <details>
-            <summary>Data packs ({w.dataPacks.enabled.length})</summary>
+            <summary>{t("info.dataPacks", { count: w.dataPacks.enabled.length })}</summary>
             <ul className="plain">
               {w.dataPacks.enabled.map((p) => (
                 <li key={p} className="mono small">
@@ -332,7 +346,7 @@ function InfoPanel({ w }: { w: WorldInfo }) {
             </ul>
           </details>
           <details>
-            <summary>Game rules ({rules.length})</summary>
+            <summary>{t("info.gameRules", { count: rules.length })}</summary>
             <dl className="fields">
               {rules.map(([k, v]) => (
                 <Field key={k} label={k}>

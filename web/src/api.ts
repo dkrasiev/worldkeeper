@@ -120,7 +120,9 @@ export interface ActivityEvent {
   kind: "backup" | "restore" | "error";
   worldId: string;
   world: string;
-  message: string;
+  message: string; // English fallback
+  code?: "backup_saved" | "backup_failed" | "restore_done" | "restore_failed";
+  params?: Record<string, string>;
 }
 
 export class ApiError extends Error {
@@ -128,6 +130,9 @@ export class ApiError extends Error {
     public status: number,
     public code: string,
     message: string,
+    /** Translation key for the UI (see err.* messages). */
+    public key?: string,
+    public params?: Record<string, string>,
   ) {
     super(message);
   }
@@ -170,7 +175,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    throw new ApiError(res.status, data.error ?? "unknown", data.message ?? res.statusText);
+    throw new ApiError(res.status, data.error ?? "unknown", data.message ?? res.statusText, data.key, data.params);
   }
   return data as T;
 }

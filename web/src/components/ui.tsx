@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { api, type GameMode, type SnapshotKind } from "../api";
+import { useI18n } from "../i18n";
 
 export function WorldIcon({ id, hasIcon, size = 64 }: { id?: string; hasIcon?: boolean; size?: number }) {
   const [broken, setBroken] = useState(false);
@@ -11,15 +12,15 @@ export function WorldIcon({ id, hasIcon, size = 64 }: { id?: string; hasIcon?: b
 }
 
 export function ModeBadge({ mode, hardcore }: { mode: GameMode; hardcore: boolean }) {
-  if (hardcore) return <span className="badge hardcore">Hardcore</span>;
+  const { t } = useI18n();
+  if (hardcore) return <span className="badge hardcore">{t("mode.hardcore")}</span>;
   if (!mode) return null;
-  return <span className={`badge mode-${mode}`}>{mode[0].toUpperCase() + mode.slice(1)}</span>;
+  return <span className={`badge mode-${mode}`}>{t(`mode.${mode}`)}</span>;
 }
 
-const kindLabels: Record<SnapshotKind, string> = { auto: "Auto", manual: "Save", "pre-restore": "Safety" };
-
 export function KindBadge({ kind }: { kind: SnapshotKind }) {
-  return <span className={`badge kind-${kind}`}>{kindLabels[kind]}</span>;
+  const { t } = useI18n();
+  return <span className={`badge kind-${kind}`}>{t(`kind.${kind}`)}</span>;
 }
 
 export function Modal({ title, children, onClose }: { title: string; children: ReactNode; onClose: () => void }) {

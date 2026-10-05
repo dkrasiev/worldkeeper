@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useI18n } from "../i18n";
 
 const isMac = /Mac|iPhone|iPad/.test(navigator.userAgent);
 
@@ -6,13 +7,14 @@ const isMac = /Mac|iPhone|iPad/.test(navigator.userAgent);
 // (no secure context, tab not focused, permission denied), so on failure
 // the text is selected instead and the user is told to press the shortcut.
 export function CopyText({ text }: { text: string }) {
+  const { t } = useI18n();
   const [state, setState] = useState<"idle" | "copied" | "manual">("idle");
   const textRef = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
     if (state === "idle") return;
-    const t = setTimeout(() => setState("idle"), state === "copied" ? 2000 : 5000);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setState("idle"), state === "copied" ? 2000 : 5000);
+    return () => clearTimeout(timer);
   }, [state]);
 
   const selectText = () => {
@@ -42,11 +44,11 @@ export function CopyText({ text }: { text: string }) {
         {text}
       </span>
       <button type="button" className="link small" onClick={copy}>
-        Copy
+        {t("copy.copy")}
       </button>
       <span className={`copy-status small ${state}`} role="status" aria-live="polite">
-        {state === "copied" && "Copied ✓"}
-        {state === "manual" && `Press ${isMac ? "⌘C" : "Ctrl+C"} to copy`}
+        {state === "copied" && t("copy.copied")}
+        {state === "manual" && t("copy.manual", { shortcut: isMac ? "⌘C" : "Ctrl+C" })}
       </span>
     </span>
   );
