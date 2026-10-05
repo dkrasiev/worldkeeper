@@ -527,3 +527,34 @@ label.check input {
 .columns > section + section {
   margin-top: 0;
 }
+
+/* settings: storage format picker */
+.field-group {
+  margin-bottom: 16px;
+}
+.group-label {
+  font-weight: 500;
+  margin-bottom: 6px;
+}
+.choice.two {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+@media (max-width: 640px) {
+  .choice.two {
+    grid-template-columns: 1fr;
+  }
+}
+.choice-btn.selected {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.settings details {
+  margin: 0 0 16px;
+}
+.settings details label {
+  margin-top: 12px;
+}
+.callout .actions {
+  margin-top: 8px;
+}

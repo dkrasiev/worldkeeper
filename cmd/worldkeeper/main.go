@@ -22,6 +22,7 @@ import (
 	"github.com/dkrasiev/worldkeeper/internal/app"
 	"github.com/dkrasiev/worldkeeper/internal/config"
 	"github.com/dkrasiev/worldkeeper/internal/discovery"
+	"github.com/dkrasiev/worldkeeper/internal/secrets"
 	"github.com/dkrasiev/worldkeeper/internal/snapshot"
 	"github.com/dkrasiev/worldkeeper/web"
 )
@@ -70,7 +71,7 @@ func run(log *slog.Logger) error {
 	if err != nil {
 		return fmt.Errorf("config %s: %w", *cfgPath, err)
 	}
-	a := app.New(cfg, discovery.HostEnv(), log)
+	a := app.New(cfg, secrets.Keyring{}, discovery.HostEnv(), log)
 
 	switch flag.Arg(0) {
 	case "", "serve":
@@ -149,7 +150,11 @@ func serve(a *app.App, log *slog.Logger, openUI bool) error {
 		_ = srv.Shutdown(shutdown)
 	}()
 
-	log.Info("worldkeeper started", "version", version, "ui", url, "storage", cfg.StorageDir)
+	storage := cfg.StorageDir
+	if cfg.Engine == config.EngineRestic {
+		storage = "restic:" + cfg.Restic.Repo
+	}
+	log.Info("worldkeeper started", "version", version, "ui", url, "storage", storage)
 	if openUI {
 		if err := openBrowser(url); err != nil {
 			log.Warn("could not open browser", "err", err)

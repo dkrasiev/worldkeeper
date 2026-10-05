@@ -54,6 +54,7 @@ export interface WorldView {
 export interface Overview {
   worlds: WorldView[];
   archived: SnapshotIndex[];
+  storageError?: string;
 }
 
 export interface WorldInfo {
@@ -94,12 +95,24 @@ export interface WorldInfo {
   dimensions: { id: string; regionFiles: number }[];
 }
 
+export type Engine = "zip" | "restic";
+
 export interface Settings {
+  engine: Engine;
   storageDir: string;
+  restic: { repo: string; binary: string; passwordFile: string };
+  resticPasswordSet?: boolean;
+  resticPassword?: string; // write-only
   extraSavesDirs: string[] | null;
   keepAuto: number;
   autoBackup: boolean;
   pollSeconds: number;
+}
+
+export interface ResticStatus {
+  version?: string;
+  state: "ok" | "not_installed" | "missing" | "wrong_password" | "no_password" | "error";
+  message?: string;
 }
 
 export interface ActivityEvent {
@@ -177,5 +190,7 @@ export const api = {
     request<{ ok: boolean }>("DELETE", `${w(id)}/snapshots/${encodeURIComponent(snap)}`),
   settings: () => request<Settings>("GET", "/api/config"),
   saveSettings: (s: Settings) => request<Settings>("PUT", "/api/config", s),
+  resticCheck: () => request<ResticStatus>("POST", "/api/restic/check"),
+  resticInit: () => request<ResticStatus>("POST", "/api/restic/init"),
   iconUrl: (id: string) => `${w(id)}/icon?token=${encodeURIComponent(token)}`,
 };

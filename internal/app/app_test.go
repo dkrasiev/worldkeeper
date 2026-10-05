@@ -1,15 +1,18 @@
 package app
 
 import (
+	"context"
 	"errors"
 	"io"
 	"log/slog"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 
 	"github.com/dkrasiev/worldkeeper/internal/config"
 	"github.com/dkrasiev/worldkeeper/internal/discovery"
+	"github.com/dkrasiev/worldkeeper/internal/secrets"
 	"github.com/dkrasiev/worldkeeper/internal/snapshot"
 	"github.com/dkrasiev/worldkeeper/internal/testworld"
 )
@@ -31,7 +34,7 @@ func setup(t *testing.T) fixture {
 		t.Fatal(err)
 	}
 	env := discovery.Env{GOOS: "linux", Home: home}
-	a := New(cfg, env, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	a := New(cfg, &secrets.Memory{}, env, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	return fixture{app: a, saves: discovery.DefaultSavesDir(env)}
 }
 
@@ -89,7 +92,7 @@ func TestRestoreReplaceKeepsSafetySnapshot(t *testing.T) {
 		t.Error("old copy left behind")
 	}
 
-	ix, _ := f.app.Store.Get("minecraft--w")
+	ix, _ := f.app.Snapshots().Get("minecraft--w")
 	if len(ix.Snapshots) != 2 || ix.Snapshots[0].Kind != snapshot.KindPreRestore {
 		t.Fatalf("snapshots = %+v", ix.Snapshots)
 	}
@@ -100,6 +103,59 @@ func TestRestoreReplaceKeepsSafetySnapshot(t *testing.T) {
 	}
 	if b, _ := os.ReadFile(filepath.Join(copyDest, "region", "r.0.0.mca")); string(b) != "creeper was here" {
 		t.Errorf("safety snapshot content = %q", b)
+	}
+}
+
+func TestResticEngineRoundTrip(t *testing.T) {
+	if _, err := exec.LookPath("restic"); err != nil {
+		t.Skip("restic not installed")
+	}
+	f := setup(t)
+	repo := filepath.Join(t.TempDir(), "repo")
+	f.app.Secrets.Set(ResticSecretKey(repo), "pw")
+	f.app.Config.Update(func(c *config.Config) error {
+		c.Engine = config.EngineRestic
+		c.Restic.Repo = repo
+		return nil
+	})
+	if err := f.app.Restic().Init(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+
+	dir := testworld.Create(t, f.saves, "w", testworld.Options{LastPlayed: 1000})
+	good, err := f.app.Backup("minecraft--w", BackupOptions{Kind: snapshot.KindManual, Label: "good"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.app.Backup("minecraft--w", BackupOptions{Kind: snapshot.KindAuto}); !errors.Is(err, ErrUnchanged) {
+		t.Fatalf("auto after manual: %v, want ErrUnchanged", err)
+	}
+
+	os.WriteFile(filepath.Join(dir, "region", "r.0.0.mca"), []byte("griefed"), 0o644)
+	if _, err := f.app.Restore("minecraft--w", good.ID, RestoreReplace); err != nil {
+		t.Fatal(err)
+	}
+	if b, _ := os.ReadFile(filepath.Join(dir, "region", "r.0.0.mca")); string(b) != "overworld region" {
+		t.Errorf("not restored: %q", b)
+	}
+	ov, _ := f.app.Overview()
+	if ov.StorageError != "" || len(ov.Worlds) != 1 || ov.Worlds[0].Snapshots != 2 {
+		t.Fatalf("overview = %+v", ov)
+	}
+}
+
+func TestOverviewSurvivesStorageError(t *testing.T) {
+	f := setup(t)
+	testworld.Create(t, f.saves, "w", testworld.Options{})
+	f.app.Config.Update(func(c *config.Config) error {
+		c.Engine = config.EngineRestic
+		c.Restic.Repo = filepath.Join(t.TempDir(), "repo")
+		c.Restic.Binary = filepath.Join(t.TempDir(), "no-restic")
+		return nil
+	})
+	ov, err := f.app.Overview()
+	if err != nil || len(ov.Worlds) != 1 || ov.StorageError == "" {
+		t.Fatalf("overview = %+v, err %v", ov, err)
 	}
 }
 
@@ -153,8 +209,26 @@ func TestWatcherCatchesUpAndRetries(t *testing.T) {
 	if pending["minecraft--w"] {
 		t.Fatal("retry did not succeed")
 	}
-	ix, _ := f.app.Store.Get("minecraft--w")
+	ix, _ := f.app.Snapshots().Get("minecraft--w")
 	if len(ix.Snapshots) != 1 {
 		t.Fatalf("snapshots = %d", len(ix.Snapshots))
+	}
+}
+
+func TestRepeatedErrorsAreCollapsed(t *testing.T) {
+	f := setup(t)
+	// NAS offline: every world fails on every poll, interleaved.
+	for i := 0; i < 3; i++ {
+		f.app.event(EventError, "w", "w", "NAS offline")
+		f.app.event(EventError, "x", "x", "NAS offline")
+	}
+	if ev := f.app.Events(); len(ev) != 2 {
+		t.Fatalf("events = %d, want one per world", len(ev))
+	}
+	// A success in between starts a new entry for the next failure.
+	f.app.event(EventBackup, "w", "w", "Saved")
+	f.app.event(EventError, "w", "w", "NAS offline")
+	if ev := f.app.Events(); len(ev) != 4 {
+		t.Fatalf("events = %d, want 4", len(ev))
 	}
 }

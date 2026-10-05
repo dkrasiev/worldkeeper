@@ -13,6 +13,8 @@ import (
 	"github.com/dkrasiev/worldkeeper/internal/config"
 	"github.com/dkrasiev/worldkeeper/internal/discovery"
 	"github.com/dkrasiev/worldkeeper/internal/lock"
+	"github.com/dkrasiev/worldkeeper/internal/restic"
+	"github.com/dkrasiev/worldkeeper/internal/secrets"
 	"github.com/dkrasiev/worldkeeper/internal/snapshot"
 	"github.com/dkrasiev/worldkeeper/internal/worldinfo"
 )
@@ -24,23 +26,69 @@ var (
 )
 
 type App struct {
-	Config *config.Store
-	Store  *snapshot.Store
-	Env    discovery.Env
-	Log    *slog.Logger
+	Config  *config.Store
+	Secrets secrets.Store
+	Env     discovery.Env
+	Log     *slog.Logger
+
+	zip *snapshot.Store
+
+	resticMu    sync.Mutex
+	resticKey   config.Restic
+	resticStore *restic.Store
 
 	eventsMu sync.Mutex
 	events   []Event
 }
 
-func New(cfg *config.Store, env discovery.Env, log *slog.Logger) *App {
+func New(cfg *config.Store, sec secrets.Store, env discovery.Env, log *slog.Logger) *App {
 	return &App{
-		Config: cfg,
-		Store:  snapshot.NewStore(func() string { return cfg.Get().StorageDir }),
-		Env:    env,
-		Log:    log,
+		Config:  cfg,
+		Secrets: sec,
+		Env:     env,
+		Log:     log,
+		zip:     snapshot.NewStore(func() string { return cfg.Get().StorageDir }),
 	}
 }
+
+// Snapshots returns the storage backend selected in the config.
+func (a *App) Snapshots() snapshot.Backend {
+	if a.Config.Get().Engine == config.EngineRestic {
+		return a.Restic()
+	}
+	return a.zip
+}
+
+// Restic returns the restic store for the current config. It is rebuilt
+// when the restic settings change, so its snapshot cache stays valid.
+func (a *App) Restic() *restic.Store {
+	rc := a.Config.Get().Restic
+	a.resticMu.Lock()
+	defer a.resticMu.Unlock()
+	if a.resticStore == nil || a.resticKey != rc {
+		a.resticKey = rc
+		a.resticStore = restic.NewStore(&restic.Runner{
+			Binary:       rc.Binary,
+			Repo:         rc.Repo,
+			PasswordFile: rc.PasswordFile,
+			Password:     func() (string, error) { return a.ResticPassword(rc.Repo) },
+		})
+	}
+	return a.resticStore
+}
+
+// ResticPassword reads the password for repo from the credential store.
+func (a *App) ResticPassword(repo string) (string, error) {
+	pw, err := a.Secrets.Get(ResticSecretKey(repo))
+	if errors.Is(err, secrets.ErrNotFound) {
+		return "", restic.ErrNoPassword
+	}
+	return pw, err
+}
+
+// ResticSecretKey is the credential store key for a repository's password.
+// Keying by repository means switching repositories never reuses a password.
+func ResticSecretKey(repo string) string { return "restic:" + repo }
 
 // WorldView is one row of the world list.
 type WorldView struct {
@@ -58,6 +106,9 @@ type Overview struct {
 	Worlds []WorldView `json:"worlds"`
 	// Archived worlds have snapshots but no local folder, e.g. after reinstalling the OS.
 	Archived []snapshot.Index `json:"archived"`
+	// StorageError is set when the backup storage cannot be read; worlds
+	// are still listed so the user sees what is at risk.
+	StorageError string `json:"storageError,omitempty"`
 }
 
 func (a *App) scan() []discovery.World {
@@ -75,16 +126,16 @@ func (a *App) find(id string) (discovery.World, error) {
 
 func (a *App) Overview() (Overview, error) {
 	worlds := a.scan()
-	indexes, err := a.Store.All()
+	ov := Overview{Worlds: []WorldView{}, Archived: []snapshot.Index{}}
+	indexes, err := a.Snapshots().All()
 	if err != nil {
-		return Overview{}, fmt.Errorf("read storage: %w", err)
+		ov.StorageError = err.Error()
 	}
 	byID := map[string]snapshot.Index{}
 	for _, ix := range indexes {
 		byID[ix.World.ID] = ix
 	}
 
-	ov := Overview{Worlds: []WorldView{}, Archived: []snapshot.Index{}}
 	for _, w := range worlds {
 		v := WorldView{World: w}
 		if s, err := worldinfo.ReadSummary(w.Path); err != nil {
@@ -185,7 +236,7 @@ func (a *App) doBackup(w discovery.World, o BackupOptions) (snapshot.Snapshot, e
 		sum = worldinfo.Summary{Name: w.Folder}
 	}
 	if o.Kind == snapshot.KindAuto {
-		ix, err := a.Store.Get(w.ID)
+		ix, err := a.Snapshots().Get(w.ID)
 		if err != nil {
 			return snapshot.Snapshot{}, err
 		}
@@ -198,7 +249,8 @@ func (a *App) doBackup(w discovery.World, o BackupOptions) (snapshot.Snapshot, e
 		ID: w.ID, Name: sum.Name, Folder: w.Folder,
 		Source: w.Source, SourceLabel: w.SourceLabel, Path: w.Path,
 	}
-	snap, err := a.Store.Create(ref, w.Path, snapshot.Meta{
+	store := a.Snapshots()
+	snap, err := store.Create(ref, w.Path, snapshot.Meta{
 		Kind: o.Kind, Label: o.Label, Note: o.Note,
 		GameVersion: sum.GameVersion, LastPlayed: sum.LastPlayed,
 	})
@@ -207,7 +259,7 @@ func (a *App) doBackup(w discovery.World, o BackupOptions) (snapshot.Snapshot, e
 	}
 	a.event(EventBackup, w.ID, sum.Name, fmt.Sprintf("Saved %s snapshot %s", o.Kind, snap.ID))
 
-	if removed, err := a.Store.Prune(w.ID, a.Config.Get().KeepAuto); err != nil {
+	if removed, err := store.Prune(w.ID, a.Config.Get().KeepAuto); err != nil {
 		a.Log.Warn("prune failed", "world", w.ID, "err", err)
 	} else if len(removed) > 0 {
 		a.Log.Info("pruned old snapshots", "world", w.ID, "removed", removed)
@@ -228,7 +280,7 @@ const (
 // Worlds without a local folder are restored to their original path when
 // possible, otherwise into the default saves folder.
 func (a *App) Restore(worldID, snapID string, mode RestoreMode) (string, error) {
-	ix, err := a.Store.Get(worldID)
+	ix, err := a.Snapshots().Get(worldID)
 	if err != nil {
 		return "", err
 	}
@@ -285,7 +337,7 @@ func (a *App) replace(w discovery.World, ix snapshot.Index, snapID string) error
 }
 
 func (a *App) extract(ix snapshot.Index, snapID, dest string) error {
-	if err := a.Store.Extract(ix.World.ID, snapID, dest); err != nil {
+	if err := a.Snapshots().Extract(ix.World.ID, snapID, dest); err != nil {
 		a.event(EventError, ix.World.ID, ix.World.Name, "Restore failed: "+err.Error())
 		return err
 	}
@@ -294,7 +346,7 @@ func (a *App) extract(ix snapshot.Index, snapID, dest string) error {
 }
 
 func (a *App) DeleteSnapshot(worldID, snapID string) error {
-	return a.Store.Delete(worldID, snapID)
+	return a.Snapshots().Delete(worldID, snapID)
 }
 
 // hasState reports whether some snapshot already holds the world as last saved

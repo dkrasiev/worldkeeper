@@ -26,6 +26,11 @@ export function WorldList({ onOpen }: { onOpen: (id: string) => void }) {
   return (
     <>
       {error && <div className="callout error">Connection lost: {error.message}</div>}
+      {data.storageError && (
+        <div className="callout error">
+          Backups are not working: {data.storageError}. Check the storage in <a href="#/settings">Settings</a>.
+        </div>
+      )}
       {data.worlds.length === 0 && (
         <div className="callout">
           No worlds found in the usual launcher folders. Add your <code>saves</code> folder in Settings.

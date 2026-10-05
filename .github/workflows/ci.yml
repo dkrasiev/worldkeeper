@@ -25,6 +25,15 @@ jobs:
           node-version: 24
           cache: pnpm
           cache-dependency-path: web/pnpm-lock.yaml
+      # restic integration tests are skipped where restic is missing (Windows).
+      - name: Install restic (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          curl -fsSL https://github.com/restic/restic/releases/download/v0.18.1/restic_0.18.1_linux_amd64.bz2 | bunzip2 > /usr/local/bin/restic
+          chmod +x /usr/local/bin/restic
+      - name: Install restic (macOS)
+        if: runner.os == 'macOS'
+        run: brew install restic
       - run: make web
       - run: go vet ./...
       - run: go test ./...
