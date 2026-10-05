@@ -558,3 +558,24 @@ label.check input {
 .callout .actions {
   margin-top: 8px;
 }
+
+/* copyable values (seed) */
+.copy-text {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: baseline;
+  gap: 4px 10px;
+}
+.selectable {
+  user-select: all;
+}
+.copy-status.copied {
+  color: var(--ok);
+}
+.copy-status.manual {
+  color: var(--muted);
+}
+.copy-status:empty {
+  display: none;
+}

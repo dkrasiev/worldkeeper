@@ -2,6 +2,7 @@ import { useState } from "react";
 import { api, ApiError, type RestoreMode, type Snapshot, type WorldInfo } from "../api";
 import { Field, KindBadge, Modal, ModeBadge, WorldIcon } from "../components/ui";
 import { bytes, capitalize, dateTime, dimensionName, duration, num, relative } from "../format";
+import { CopyText } from "../components/CopyText";
 import { useLoad } from "../hooks";
 
 type Dialog =
@@ -269,13 +270,7 @@ function InfoPanel({ w }: { w: WorldInfo }) {
         </Field>
         <Field label="Cheats">{w.cheats ? "On" : "Off"}</Field>
         <Field label="Seed">
-          {w.seed ? (
-            <button className="link mono" title="Copy" onClick={() => navigator.clipboard?.writeText(w.seed!)}>
-              {w.seed}
-            </button>
-          ) : (
-            "—"
-          )}
+          {w.seed ? <CopyText text={w.seed} /> : "—"}
         </Field>
         <Field label="Day">{num(w.day)}</Field>
         <Field label="Weather">{capitalize(w.weather)}</Field>
