@@ -89,3 +89,45 @@ func TestAdvancementProgress(t *testing.T) {
 		t.Errorf("partial progress = %#v", p["minecraft:story/smelt_iron"])
 	}
 }
+
+// Minecraft 26.x moved most data out of level.dat (see testworld.Layout26).
+func TestRead26Layout(t *testing.T) {
+	dir := testworld.Create(t, t.TempDir(), "New World", testworld.Options{Layout26: true})
+
+	info, err := Read(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	checks := []struct {
+		name      string
+		got, want any
+	}{
+		{"version", info.GameVersion, "26.3"},
+		{"difficulty", info.Difficulty, "hard"},
+		{"hardcore", info.Hardcore, true},
+		{"seed", info.Seed, "2762118087573245665"},
+		{"weather", info.Weather, "thunder"},
+		{"day", info.Day, int64(3)},
+		{"gamerule", info.GameRules["minecraft:keep_inventory"], "1"},
+		{"advancements", info.Advancements, 1},
+		{"player xp", info.Player != nil && info.Player.XPLevel == 7, true},
+		{"stats", info.Stats != nil && info.Stats.PlayTimeSeconds == 1800, true},
+		{"dimensions", len(info.Dimensions) == 1 && info.Dimensions[0].ID == "minecraft:overworld", true},
+	}
+	for _, c := range checks {
+		if c.got != c.want {
+			t.Errorf("%s = %v, want %v", c.name, c.got, c.want)
+		}
+	}
+	if len(info.Spawn) != 3 || info.Spawn[0] != 224 {
+		t.Errorf("spawn = %v", info.Spawn)
+	}
+
+	p := AdvancementProgress(dir)
+	if p["minecraft:story/root"] != true {
+		t.Errorf("progress = %v", p)
+	}
+	if _, ok := p["minecraft:adventure/adventuring_time"].(map[string]any); !ok {
+		t.Errorf("partial progress missing: %v", p)
+	}
+}
