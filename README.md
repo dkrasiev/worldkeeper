@@ -17,13 +17,27 @@ Automatic backups for Minecraft: Java Edition worlds. Worldkeeper saves a world 
 
 ## Install
 
-Download the archive for your OS from [Releases](https://github.com/dkrasiev/worldkeeper/releases), unpack it, and run `worldkeeper`. Your browser opens the UI at `http://127.0.0.1:25599`.
+Download the archive for your OS from [Releases](https://github.com/dkrasiev/worldkeeper/releases), unpack it, and run `worldkeeper`. On the first start your browser opens the UI at `http://127.0.0.1:25599`.
 
 > The Windows binary is not code-signed, so SmartScreen may warn you the first time you run it. Click "More info" and then "Run anyway", or build it yourself from source.
 
+### Tray icon
+
+While running, Worldkeeper sits in the system tray (Windows), the menu bar (macOS), or the status area (Linux). Its menu:
+
+- shows when the last backup happened, or which world failed. The icon gets a red dot while a backup is failing;
+- **Open Worldkeeper** opens the web UI;
+- **Back up now** backs up every world that changed since its last save;
+- **Back up when a world is closed** toggles the automatic backup;
+- **Quit Worldkeeper** stops it.
+
+The menu follows the system language (English or Russian). With the tray available, the browser opens on its own only on the very first start. Pass `-no-tray` to run without the icon, for example on a server. On Linux the icon needs a desktop with StatusNotifier support (KDE, or GNOME with the AppIndicator extension), and Worldkeeper runs without it when there is no D-Bus session.
+
+The log is written next to the config, in `worldkeeper.log`.
+
 To start Worldkeeper with your computer:
 
-- **Windows:** put a shortcut to `worldkeeper.exe -no-browser` in `shell:startup`.
+- **Windows:** put a shortcut to `worldkeeper.exe` in `shell:startup`.
 - **macOS:** add it under System Settings → General → Login Items.
 - **Linux:** use a systemd user service or your desktop's autostart.
 
@@ -64,7 +78,7 @@ Each world gets its own folder, named after the launcher and the world folder. I
 
 ## Development
 
-You need Go 1.26+, Node 24+, and pnpm.
+You need Go 1.26+, Node 24+, and pnpm. On macOS the menu bar icon needs cgo (Xcode command line tools). Without cgo, macOS builds run without the icon.
 
 ```bash
 make test     # go vet, go test, TypeScript typecheck

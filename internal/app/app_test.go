@@ -232,3 +232,27 @@ func TestRepeatedErrorsAreCollapsed(t *testing.T) {
 		t.Fatalf("events = %d, want 4", len(ev))
 	}
 }
+
+func TestBackupChangedAndHealth(t *testing.T) {
+	f := setup(t)
+	testworld.Create(t, f.saves, "a", testworld.Options{})
+	testworld.Create(t, f.saves, "b", testworld.Options{})
+
+	if h := f.app.Health(); !h.LastBackup.IsZero() || h.Error != "" {
+		t.Fatalf("fresh health = %+v", h)
+	}
+	if saved, skipped, failed := f.app.BackupChanged(); saved != 2 || skipped != 0 || failed != 0 {
+		t.Fatalf("first run: %d %d %d", saved, skipped, failed)
+	}
+	if saved, skipped, failed := f.app.BackupChanged(); saved != 0 || skipped != 2 || failed != 0 {
+		t.Fatalf("second run: %d %d %d", saved, skipped, failed)
+	}
+	if h := f.app.Health(); h.LastBackup.IsZero() || h.Error != "" {
+		t.Fatalf("health after backup = %+v", h)
+	}
+
+	f.app.event(EventError, "minecraft--a", "a", CodeBackupFailed, map[string]string{"error": "NAS offline"}, "Backup failed: NAS offline")
+	if h := f.app.Health(); h.FailingWorld != "a" {
+		t.Fatalf("health with failure = %+v", h)
+	}
+}
