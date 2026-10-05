@@ -89,6 +89,7 @@ func run() error {
 		}
 	}
 	a := app.New(cfg, secrets.Keyring{}, discovery.HostEnv(), log)
+	a.Version = version
 
 	switch flag.Arg(0) {
 	case "", "serve":
@@ -242,6 +243,8 @@ func (c *trayController) BackupNow() tray.BackupResult {
 	saved, skipped, failed := c.app.BackupChanged()
 	return tray.BackupResult{Saved: saved, Skipped: skipped, Failed: failed}
 }
+
+func (c *trayController) Version() string { return c.app.Version }
 
 func (c *trayController) AutoBackup() bool { return c.app.Config.Get().AutoBackup }
 

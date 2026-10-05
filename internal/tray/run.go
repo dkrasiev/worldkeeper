@@ -32,6 +32,8 @@ func Run(ctx context.Context, c Controller, locale string, log *slog.Logger) err
 		backup := systray.AddMenuItem(text(locale, "backupNow"), "")
 		auto := systray.AddMenuItemCheckbox(text(locale, "auto"), "", c.AutoBackup())
 		systray.AddSeparator()
+		about := systray.AddMenuItem("Worldkeeper "+c.Version(), "")
+		about.Disable()
 		quit := systray.AddMenuItem(text(locale, "quit"), "")
 
 		failing := false

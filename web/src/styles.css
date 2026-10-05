@@ -652,3 +652,25 @@ a.snapshot-link:hover strong {
   margin: 4px 0 0;
   white-space: pre-wrap;
 }
+
+/* footer: version and links */
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 16px;
+  margin-top: 40px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--muted);
+}
+.footer .badge {
+  margin-left: 6px;
+}
+.footer a {
+  color: var(--muted);
+}
+.footer a:hover {
+  color: var(--accent);
+}
