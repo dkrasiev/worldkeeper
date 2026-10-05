@@ -4,10 +4,30 @@ before:
   hooks:
     - make web
 
+# Runs on a macOS runner (see .github/workflows/release.yml): the macOS menu
+# bar icon needs cgo, which only a Mac can build. Windows and Linux builds
+# are pure Go.
 builds:
-  - main: ./cmd/worldkeeper
+  - id: darwin
+    main: ./cmd/worldkeeper
+    env: [CGO_ENABLED=1]
+    goos: [darwin]
+    goarch: [amd64, arm64]
+    ldflags: ["-s -w -X main.version={{.Version}}"]
+
+  - id: windows
+    main: ./cmd/worldkeeper
     env: [CGO_ENABLED=0]
-    goos: [windows, darwin, linux]
+    goos: [windows]
+    goarch: [amd64, arm64]
+    # GUI subsystem: no console window next to the tray icon. CLI commands
+    # attach to the calling terminal at runtime.
+    ldflags: ["-s -w -H=windowsgui -X main.version={{.Version}}"]
+
+  - id: linux
+    main: ./cmd/worldkeeper
+    env: [CGO_ENABLED=0]
+    goos: [linux]
     goarch: [amd64, arm64]
     ldflags: ["-s -w -X main.version={{.Version}}"]
 
