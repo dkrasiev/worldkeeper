@@ -189,6 +189,8 @@ Pull requests are squash-merged: each one becomes a single commit on `develop`, 
 
 Pushing a `v*` tag builds the release: GoReleaser makes the archives, `Worldkeeper.app` for macOS (a universal binary, bundled and zipped by `tools/macapp`), and the GitHub release, and opens the winget pull request if the `WINGET_TOKEN` secret is set. The tag can be on any commit.
 
+**Release notes are generated, not written.** GoReleaser lists the pull requests merged since the previous `v*` tag, grouped by their Conventional Commits type (see the table above), between a fixed header and an install footer, both defined in `.goreleaser.yaml`. So a pull request title is the line users read in the release notes.
+
 **Branches.** Pull requests go into `develop`, the default branch. `main` holds the latest release. A release fast-forwards `main` to `develop` and is never merged, so both branches keep the same commits (pull requests are squash-merged, and merging `develop` into `main` would squash a whole release into one commit).
 
 **Regular release** of `develop`, once its CI is green:
