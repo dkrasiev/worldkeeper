@@ -12,6 +12,8 @@ export const ru: Dict = {
 
   "update.available": "Вышла версия Worldkeeper {version} (у вас {current}).",
   "update.latest": "Вышла версия {version}.",
+  "update.availableDev": "Вышла тестовая сборка {version} (у вас {current}).",
+  "update.latestDev": "Вышла тестовая сборка {version}.",
   "update.download": "Скачать",
   "update.later": "Не сейчас",
   "update.upToDate": "У вас последняя версия (проверено {when}).",
@@ -245,6 +247,13 @@ export const ru: Dict = {
   "settings.checkUpdates": "Проверять новые версии раз в день",
   "settings.checkUpdatesHint":
     "Worldkeeper только спрашивает у GitHub, какая версия последняя. Ничего о вас и ваших мирах не отправляется.",
+  "settings.channel": "Предлагать обновления",
+  "settings.channelStable": "Релизы",
+  "settings.channelStableText": "Проверенные версии. Рекомендуется.",
+  "settings.channelDev": "Тестовые сборки",
+  "settings.channelDevText":
+    "Свежие изменения из ветки develop сразу после слияния. Могут содержать ошибки, в том числе в бэкапах.",
+  "settings.channelDevUnavailable": "Тестовые сборки делаются только для Windows x64.",
   "settings.saved": "Настройки сохранены.",
   "settings.save": "Сохранить настройки",
   "settings.saving": "Сохраняем…",
@@ -278,4 +287,5 @@ export const ru: Dict = {
   "err.storage_unusable": "Нельзя использовать папку для бэкапов: {error}",
   "err.invalid_json": "Некорректный запрос: {error}",
   "err.repo_not_missing": "Репозиторий нельзя создать (состояние: {state}).",
+  "err.update_channel_unknown": "Неизвестный канал обновлений.",
 };

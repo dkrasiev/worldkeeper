@@ -108,6 +108,17 @@ func TestUpdateSettings(t *testing.T) {
 	if rec := do(h, "PUT", "/api/config", host, token, body); rec.Code != 200 || !strings.Contains(rec.Body.String(), `"checkUpdates":false`) {
 		t.Errorf("turn off: %d %s", rec.Code, rec.Body)
 	}
+	if rec := do(h, "GET", "/api/config", host, token, ""); !strings.Contains(rec.Body.String(), `"updateChannel":"stable"`) {
+		t.Errorf("an old client without the channel keeps it stable: %s", rec.Body)
+	}
+	dev := strings.Replace(body, `}`, `,"updateChannel":"dev"}`, 1)
+	if rec := do(h, "PUT", "/api/config", host, token, dev); rec.Code != 200 || !strings.Contains(rec.Body.String(), `"updateChannel":"dev"`) {
+		t.Errorf("dev channel: %d %s", rec.Code, rec.Body)
+	}
+	bad := strings.Replace(body, `}`, `,"updateChannel":"nightly"}`, 1)
+	if rec := do(h, "PUT", "/api/config", host, token, bad); rec.Code != 400 || !strings.Contains(rec.Body.String(), `"key":"update_channel_unknown"`) {
+		t.Errorf("unknown channel: %d %s", rec.Code, rec.Body)
+	}
 	// "test-version" is not a release number, so nothing is fetched.
 	rec := do(h, "POST", "/api/update/check", host, token, "")
 	if rec.Code != 200 || !strings.Contains(rec.Body.String(), `"versioned":false`) || !strings.Contains(rec.Body.String(), `"available":false`) {

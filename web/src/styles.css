@@ -758,3 +758,7 @@ a.snapshot-link:hover strong {
 .update-check {
   margin: 0 0 16px;
 }
+.choice-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}

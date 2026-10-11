@@ -5,22 +5,19 @@ import { useLoad } from "../hooks";
 import { useI18n } from "../i18n";
 
 // UpdateCheck shows the result of the last update check and checks on request.
-function UpdateCheck() {
+function UpdateCheck({ status: s, onChange }: { status?: UpdateStatus; onChange: (s: UpdateStatus) => void }) {
   const { t, errorText } = useI18n();
   const f = useFormat();
-  const { data } = useLoad(api.update, []);
-  const [checked, setChecked] = useState<UpdateStatus>();
   const [busy, setBusy] = useState(false);
-  const s = checked ?? data;
   if (!s) return null;
   if (!s.versioned) return <p className="hint update-check">{t("update.devBuild")}</p>;
 
   const check = async () => {
     setBusy(true);
     try {
-      setChecked(await api.checkUpdate());
+      onChange(await api.checkUpdate());
     } catch (err) {
-      setChecked({ ...s, error: errorText(err) });
+      onChange({ ...s, error: errorText(err) });
     } finally {
       setBusy(false);
     }
@@ -30,8 +27,8 @@ function UpdateCheck() {
     <p className="hint update-check">
       {s.available && s.latest ? (
         <>
-          {t("update.latest", { version: s.latest.version })}{" "}
-          <a href={s.latest.url} target="_blank" rel="noreferrer">
+          {t(s.latest.dev ? "update.latestDev" : "update.latest", { version: s.latest.version })}{" "}
+          <a href={s.latest.download ?? s.latest.url} target="_blank" rel="noreferrer">
             {t("update.download")}
           </a>
         </>
@@ -58,10 +55,15 @@ export function SettingsView() {
   const [status, setStatus] = useState<{ ok: boolean; text: string }>();
   const [restic, setRestic] = useState<ResticStatus>();
   const [busy, setBusy] = useState(false);
+  const { data: loadedUpdate } = useLoad(api.update, []);
+  const [checkedUpdate, setUpdate] = useState<UpdateStatus>();
+  const update = checkedUpdate ?? loadedUpdate;
+  const [savedChannel, setSavedChannel] = useState<Settings["updateChannel"]>();
 
   useEffect(() => {
     if (data) {
       setForm(data);
+      setSavedChannel(data.updateChannel);
       setExtra((data.extraSavesDirs ?? []).join("\n"));
       if (data.engine === "restic") api.resticCheck().then(setRestic, () => {});
     }
@@ -89,6 +91,11 @@ export function SettingsView() {
       setPassword("");
       setStatus({ ok: true, text: t("settings.saved") });
       setRestic(saved.engine === "restic" ? await api.resticCheck() : undefined);
+      if (saved.updateChannel !== savedChannel) {
+        setSavedChannel(saved.updateChannel);
+        // Offer what the new channel has right away, not at the next daily check.
+        setUpdate(await api.checkUpdate().catch(() => update));
+      }
     } catch (err) {
       setStatus({ ok: false, text: errorText(err) });
     } finally {
@@ -113,6 +120,19 @@ export function SettingsView() {
       className={`choice-btn ${form.engine === value ? "selected" : ""}`}
       aria-pressed={form.engine === value}
       onClick={() => set("engine", value)}
+    >
+      <strong>{title}</strong>
+      <span>{text}</span>
+    </button>
+  );
+
+  const channelOption = (value: Settings["updateChannel"], title: string, text: string, disabled = false) => (
+    <button
+      type="button"
+      className={`choice-btn ${form.updateChannel === value ? "selected" : ""}`}
+      aria-pressed={form.updateChannel === value}
+      disabled={disabled}
+      onClick={() => set("updateChannel", value)}
     >
       <strong>{title}</strong>
       <span>{text}</span>
@@ -232,7 +252,19 @@ export function SettingsView() {
         {t("settings.checkUpdates")}
       </label>
       <p className="hint update-hint">{t("settings.checkUpdatesHint")}</p>
-      <UpdateCheck />
+      <div className="field-group">
+        <div className="group-label">{t("settings.channel")}</div>
+        <div className="choice two">
+          {channelOption("stable", t("settings.channelStable"), t("settings.channelStableText"))}
+          {channelOption(
+            "dev",
+            t("settings.channelDev"),
+            update && !update.devBuilds ? t("settings.channelDevUnavailable") : t("settings.channelDevText"),
+            update !== undefined && !update.devBuilds,
+          )}
+        </div>
+      </div>
+      <UpdateCheck status={update} onChange={setUpdate} />
 
       {status && <div className={`callout ${status.ok ? "success" : "error"}`}>{status.text}</div>}
       <div className="actions">

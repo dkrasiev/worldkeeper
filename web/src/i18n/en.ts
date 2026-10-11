@@ -13,6 +13,8 @@ export const en = {
 
   "update.available": "Worldkeeper {version} is available (you have {current}).",
   "update.latest": "Version {version} is available.",
+  "update.availableDev": "Test build {version} is available (you have {current}).",
+  "update.latestDev": "Test build {version} is available.",
   "update.download": "Download",
   "update.later": "Not now",
   "update.upToDate": "You have the latest version (checked {when}).",
@@ -231,6 +233,13 @@ export const en = {
   "settings.checkUpdates": "Check for new versions once a day",
   "settings.checkUpdatesHint":
     "Worldkeeper only asks GitHub which version is the latest. Nothing about you or your worlds is sent.",
+  "settings.channel": "Offer updates",
+  "settings.channelStable": "Releases",
+  "settings.channelStableText": "Tested versions. Recommended.",
+  "settings.channelDev": "Test builds",
+  "settings.channelDevText":
+    "The newest changes from the develop branch, as soon as they are merged. They can have bugs, backups included.",
+  "settings.channelDevUnavailable": "Test builds are made for Windows x64 only.",
   "settings.saved": "Settings saved.",
   "settings.save": "Save settings",
   "settings.saving": "Saving…",
@@ -264,4 +273,5 @@ export const en = {
   "err.storage_unusable": "Cannot use the backup folder: {error}",
   "err.invalid_json": "Invalid request: {error}",
   "err.repo_not_missing": "The repository cannot be initialized (state: {state}).",
+  "err.update_channel_unknown": "Unknown update channel.",
 } satisfies Record<string, string | Plural>;

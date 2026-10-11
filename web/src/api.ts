@@ -113,6 +113,8 @@ export interface Settings {
   autoBackup: boolean;
   pollSeconds: number;
   checkUpdates: boolean;
+  /** "dev" also offers test builds of the develop branch. */
+  updateChannel: "stable" | "dev";
 }
 
 /** New-release check (GET /api/update). */
@@ -120,7 +122,14 @@ export interface UpdateStatus {
   current: string;
   /** False for local builds ("dev"), which are never checked. */
   versioned: boolean;
-  latest?: { version: string; url: string };
+  /** Test builds are made for this platform (Windows x64 only). */
+  devBuilds: boolean;
+  latest?: {
+    version: string;
+    url: string; // release page
+    download?: string; // the archive itself; set for test builds
+    dev?: boolean; // a test build of develop
+  };
   available: boolean;
   checkedAt?: string; // last successful check
   error?: string; // last check failed

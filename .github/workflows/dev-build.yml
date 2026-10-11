@@ -29,6 +29,10 @@ env:
 jobs:
   windows-amd64:
     runs-on: ubuntu-latest # pure Go cross-compile; no cgo needed for Windows
+    outputs:
+      built: ${{ steps.existing.outputs.skip != 'true' }}
+      artifact: ${{ steps.existing.outputs.name }}
+      version: ${{ steps.version.outputs.version }}
     steps:
       - name: Already built?
         id: existing
@@ -62,6 +66,19 @@ jobs:
         with:
           node-version: 24
 
+      # The version names the branch, e.g. 0.3.0-develop.202610111530.abc1234
+      # or 0.3.0-feat-autostart.…: lowercase, anything but [0-9a-z-] becomes
+      # "-". The commit time (UTC) orders builds of one branch for the app's
+      # update check.
+      - name: Version label
+        if: steps.existing.outputs.skip != 'true'
+        env:
+          BRANCH: ${{ github.head_ref || github.ref_name }}
+        run: |
+          branch=$(printf '%s' "$BRANCH" | tr '[:upper:]' '[:lower:]' | sed -e 's/[^0-9a-z-]/-/g' -e 's/^-*//' -e 's/-*$//')
+          when=$(TZ=UTC git log -1 --date=format-local:%Y%m%d%H%M --format=%cd "$COMMIT")
+          echo "DEV_LABEL=${branch:-build}.${when}.$(git rev-parse --short=7 "$COMMIT")" >> "$GITHUB_ENV"
+
       # Same build settings as releases (GUI subsystem, version stamp), only
       # the windows/amd64 target.
       - uses: goreleaser/goreleaser-action@v6
@@ -94,3 +111,36 @@ jobs:
             echo
             echo "Commit \`${COMMIT}\`. Download \`worldkeeper.exe\` from **Artifacts** below (kept for 14 days). Test build, not a release."
           } >> "$GITHUB_STEP_SUMMARY"
+
+  # Every push to develop replaces the "dev" pre-release with its build, so it
+  # can be downloaded without signing in to GitHub; Worldkeeper offers it on
+  # the "Test builds" update channel. Pull request builds stay artifacts.
+  publish:
+    needs: windows-amd64
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop' && needs.windows-amd64.outputs.built == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # to replace the release
+      actions: read # to download the build
+    concurrency:
+      group: dev-release
+      cancel-in-progress: true # the newest push wins
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.windows-amd64.outputs.artifact }}
+      - name: Replace the dev pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ needs.windows-amd64.outputs.version }}
+        run: |
+          # The app reads the version from the title and downloads this
+          # archive by name (internal/update).
+          zip -j worldkeeper_windows_amd64.zip worldkeeper.exe
+          gh release delete dev --yes --cleanup-tag || true
+          gh release create dev worldkeeper_windows_amd64.zip \
+            --prerelease --latest=false --target "$COMMIT" \
+            --title "Dev build ${VERSION}" \
+            --notes "Test build of \`develop\` at ${COMMIT}, for Windows x64. Not a release: it may have bugs. Worldkeeper offers it when **Settings → Offer updates** is set to **Test builds**."
+          echo "Published [Dev build ${VERSION}](https://github.com/${GH_REPO}/releases/tag/dev)." >> "$GITHUB_STEP_SUMMARY"

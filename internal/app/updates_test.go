@@ -65,3 +65,59 @@ func TestCheckUpdate(t *testing.T) {
 		t.Error("dev build asked GitHub")
 	}
 }
+
+func TestUpdateChannel(t *testing.T) {
+	f := setup(t)
+	defer func(was bool) { update.DevBuilds = was }(update.DevBuilds)
+	update.DevBuilds = true
+
+	stable := "v0.2.0"
+	var devTitle atomic.Value
+	devTitle.Store("Dev build 0.3.0-develop.202610111530.abc1234")
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/dev" {
+			w.Write([]byte(`{"name":"` + devTitle.Load().(string) + `","html_url":"https://example.test/dev",
+				"assets":[{"name":"worldkeeper_windows_amd64.zip","browser_download_url":"https://example.test/dev.zip"}]}`))
+			return
+		}
+		w.Write([]byte(`{"tag_name":"` + stable + `","html_url":"https://example.test/` + stable + `"}`))
+	}))
+	defer srv.Close()
+	f.app.UpdateChecker = update.Checker{URL: srv.URL + "/latest", DevURL: srv.URL + "/dev"}
+	f.app.Version = "0.2.0"
+	setChannel := func(ch string) {
+		f.app.Config.Update(func(c *config.Config) error { c.UpdateChannel = ch; return nil })
+	}
+
+	// Stable: the test build is not offered.
+	if st := f.app.CheckUpdate(context.Background()); st.Available || st.Latest.Dev {
+		t.Fatalf("stable channel: %+v", st.Latest)
+	}
+
+	// Switching channels makes a check due at once and hides the old result.
+	setChannel(config.ChannelDev)
+	if !f.app.updateDue(time.Now()) || f.app.UpdateStatus().Latest != nil {
+		t.Fatal("channel switch: check not due, or stale result shown")
+	}
+	st := f.app.CheckUpdate(context.Background())
+	if !st.Available || !st.Latest.Dev || st.Latest.Download != "https://example.test/dev.zip" {
+		t.Fatalf("dev channel: %+v", st.Latest)
+	}
+
+	// A test build of the same version is offered when its commit is newer.
+	f.app.Version = "0.3.0-develop.202610100000.0000000"
+	if st := f.app.UpdateStatus(); !st.Available {
+		t.Error("newer test build not offered")
+	}
+	// A release newer than the test build wins.
+	stable = "v0.3.0"
+	if st := f.app.CheckUpdate(context.Background()); !st.Available || st.Latest.Dev || st.Latest.Version != "0.3.0" {
+		t.Errorf("newer release: %+v", st.Latest)
+	}
+
+	// Where no test builds are made, the dev channel acts as stable.
+	update.DevBuilds = false
+	if f.app.updateChannel() != config.ChannelStable {
+		t.Error("dev channel without test builds for this platform")
+	}
+}

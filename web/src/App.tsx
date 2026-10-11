@@ -90,7 +90,7 @@ function UpdateBanner() {
     }
   });
   if (!data?.available || !data.latest || dismissed === data.latest.version) return null;
-  const version = data.latest.version;
+  const { version, dev } = data.latest;
   const dismiss = () => {
     try {
       localStorage.setItem(DISMISSED_KEY, version);
@@ -101,8 +101,8 @@ function UpdateBanner() {
   };
   return (
     <div className="callout update">
-      <span>{t("update.available", { version, current: data.current })}</span>
-      <a href={data.latest.url} target="_blank" rel="noreferrer">
+      <span>{t(dev ? "update.availableDev" : "update.available", { version, current: data.current })}</span>
+      <a href={data.latest.download ?? data.latest.url} target="_blank" rel="noreferrer">
         {t("update.download")}
       </a>
       <button type="button" className="link" onClick={dismiss}>
@@ -115,20 +115,21 @@ function UpdateBanner() {
 const REPO = "https://github.com/dkrasiev/worldkeeper";
 
 // Footer shows the running version on every page. Release versions link to
-// their release notes; test builds (x.y.z-dev.<commit>) and local builds
-// ("dev") are labelled so they are not mistaken for a release.
+// their release notes; test builds (x.y.z-<branch>.<time>.<commit>) and
+// local builds ("dev") are labelled so they are not mistaken for a release.
 function Footer() {
   const { t } = useI18n();
   const { data } = useLoad(api.about, []);
   if (!data) return null;
   const v = data.version;
-  const release = /^\d+\.\d+\.\d+(-[0-9A-Za-z.]+)?$/.test(v) && !v.includes("-dev.");
+  const release = /^\d+\.\d+\.\d+$/.test(v);
+  const testBuild = /^\d+\.\d+\.\d+-/.test(v);
   return (
     <footer className="footer">
       <span>
         Worldkeeper <span className="mono">{v}</span>
         {v === "dev" && <span className="badge">{t("about.devBuild")}</span>}
-        {v.includes("-dev.") && <span className="badge">{t("about.testBuild")}</span>}
+        {testBuild && <span className="badge">{t("about.testBuild")}</span>}
       </span>
       {release && (
         <a href={`${REPO}/releases/tag/v${v}`} target="_blank" rel="noreferrer">
