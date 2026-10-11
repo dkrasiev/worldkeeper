@@ -15,6 +15,7 @@ on:
       - tools/macapp/**
       - internal/icon/**
       - cmd/worldkeeper/launch*.go
+      - Makefile
   workflow_dispatch:
 
 permissions:
@@ -105,6 +106,16 @@ jobs:
       - name: Log
         if: always()
         run: cat "$HOME/Library/Application Support/worldkeeper/worldkeeper.log" || true
+
+      # `make app` packs the same bundle from a plain go build for this Mac's
+      # architecture, for local builds (see the Makefile).
+      - name: make app
+        run: |
+          set -euo pipefail
+          make app
+          codesign --verify --strict dist/Worldkeeper.app
+          plutil -extract CFBundleShortVersionString raw dist/Worldkeeper.app/Contents/Info.plist
+          dist/Worldkeeper.app/Contents/MacOS/worldkeeper version | grep -E '^[0-9]+[.][0-9]+[.][0-9]+-local[.]'
 
       - uses: actions/upload-artifact@v4
         with:
