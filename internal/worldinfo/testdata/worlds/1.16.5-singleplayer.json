@@ -1,0 +1,104 @@
+{
+  "info": {
+    "name": "worldkeeper test 1.16",
+    "gameVersion": "1.16.5",
+    "dataVersion": 2586,
+    "gameMode": "survival",
+    "hardcore": false,
+    "lastPlayed": "2026-10-11T10:57:09.046Z",
+    "hasIcon": true,
+    "modded": false,
+    "snapshotVersion": false,
+    "difficulty": "normal",
+    "difficultyLocked": false,
+    "cheats": false,
+    "seed": "-5984353059150178800",
+    "day": 0,
+    "weather": "clear",
+    "spawn": [
+      208,
+      64,
+      80
+    ],
+    "brands": [
+      "vanilla"
+    ],
+    "dataPacks": {
+      "enabled": [
+        "vanilla"
+      ],
+      "disabled": []
+    },
+    "gameRules": {
+      "announceAdvancements": "true",
+      "commandBlockOutput": "true",
+      "disableElytraMovementCheck": "false",
+      "disableRaids": "false",
+      "doDaylightCycle": "true",
+      "doEntityDrops": "true",
+      "doFireTick": "true",
+      "doImmediateRespawn": "false",
+      "doInsomnia": "true",
+      "doLimitedCrafting": "false",
+      "doMobLoot": "true",
+      "doMobSpawning": "true",
+      "doPatrolSpawning": "true",
+      "doTileDrops": "true",
+      "doTraderSpawning": "true",
+      "doWeatherCycle": "true",
+      "drowningDamage": "true",
+      "fallDamage": "true",
+      "fireDamage": "true",
+      "forgiveDeadPlayers": "true",
+      "keepInventory": "false",
+      "logAdminCommands": "true",
+      "maxCommandChainLength": "65536",
+      "maxEntityCramming": "24",
+      "mobGriefing": "true",
+      "naturalRegeneration": "true",
+      "randomTickSpeed": "3",
+      "reducedDebugInfo": "false",
+      "sendCommandFeedback": "true",
+      "showDeathMessages": "true",
+      "spawnRadius": "10",
+      "spectatorsGenerateChunks": "true",
+      "universalAnger": "false"
+    },
+    "player": {
+      "dimension": "minecraft:overworld",
+      "pos": [
+        215.6413486201085,
+        64,
+        141.59544360313788
+      ],
+      "health": 20,
+      "food": 20,
+      "xpLevel": 0
+    },
+    "stats": {
+      "playTimeSeconds": 63,
+      "deaths": 0,
+      "mobKills": 0,
+      "distanceMeters": 69,
+      "jumps": 3
+    },
+    "advancements": 2,
+    "sizeBytes": 19589,
+    "dimensions": [
+      {
+        "id": "minecraft:overworld",
+        "regionFiles": 6
+      }
+    ]
+  },
+  "advancementProgress": {
+    "minecraft:adventure/adventuring_time": {
+      "criteria": {
+        "minecraft:birch_forest": true,
+        "minecraft:plains": true
+      }
+    },
+    "minecraft:story/mine_stone": true,
+    "minecraft:story/root": true
+  }
+}

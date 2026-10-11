@@ -1,0 +1,35 @@
+{
+  "stats": {
+    "minecraft:used": {
+      "minecraft:crafting_table": 1,
+      "minecraft:wooden_pickaxe": 1
+    },
+    "minecraft:mined": {
+      "minecraft:jungle_log": 5,
+      "minecraft:stone": 1
+    },
+    "minecraft:picked_up": {
+      "minecraft:cobblestone": 1,
+      "minecraft:jungle_log": 5
+    },
+    "minecraft:custom": {
+      "minecraft:interact_with_crafting_table": 1,
+      "minecraft:sprint_one_cm": 2861,
+      "minecraft:time_since_rest": 924,
+      "minecraft:walk_one_cm": 1637,
+      "minecraft:total_world_time": 1017,
+      "minecraft:leave_game": 1,
+      "minecraft:fly_one_cm": 646,
+      "minecraft:play_time": 924,
+      "minecraft:jump": 7,
+      "minecraft:time_since_death": 924
+    },
+    "minecraft:crafted": {
+      "minecraft:stick": 4,
+      "minecraft:jungle_planks": 20,
+      "minecraft:wooden_pickaxe": 1,
+      "minecraft:crafting_table": 1
+    }
+  },
+  "DataVersion": 4671
+}
