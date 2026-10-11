@@ -12,7 +12,6 @@ Make what already shipped trustworthy before adding more.
 - [#9](https://github.com/dkrasiev/worldkeeper/issues/9) Show progress for long backups and restores
 - [#10](https://github.com/dkrasiev/worldkeeper/issues/10) "Load as a new world" keeps the original world name
 - [#11](https://github.com/dkrasiev/worldkeeper/issues/11) Open-source housekeeping
-- [#44](https://github.com/dkrasiev/worldkeeper/issues/44) Publish to winget
 - [#55](https://github.com/dkrasiev/worldkeeper/issues/55) Rename and delete worlds
 
 ## [v0.3](https://github.com/dkrasiev/worldkeeper/milestone/2): convenience
@@ -25,6 +24,7 @@ Make what already shipped trustworthy before adding more.
 - [#17](https://github.com/dkrasiev/worldkeeper/issues/17) Tray menu language follows the UI language
 - [#39](https://github.com/dkrasiev/worldkeeper/issues/39) Windows: app icon, version info and Start menu entry
 - [#40](https://github.com/dkrasiev/worldkeeper/issues/40) macOS: `Worldkeeper.app` bundle (Launchpad, Spotlight, menu bar only)
+- [#59](https://github.com/dkrasiev/worldkeeper/issues/59) Notify about new releases
 
 ## [v0.4](https://github.com/dkrasiev/worldkeeper/milestone/3): storage and distribution
 
@@ -44,6 +44,7 @@ Make what already shipped trustworthy before adding more.
 - [#27](https://github.com/dkrasiev/worldkeeper/issues/27) Mod and datapack advancements in the tree
 - [#28](https://github.com/dkrasiev/worldkeeper/issues/28) Other games via manifests
 - [#35](https://github.com/dkrasiev/worldkeeper/issues/35) Companion Minecraft mod: save from the pause menu, consistent backups while playing, in-game status
+- [#44](https://github.com/dkrasiev/worldkeeper/issues/44) Publish to winget
 
 ## Not planned
 
