@@ -1,0 +1,125 @@
+{
+  "info": {
+    "name": "worldkeeper test 1.20",
+    "gameVersion": "1.20.6",
+    "dataVersion": 3839,
+    "gameMode": "survival",
+    "hardcore": false,
+    "lastPlayed": "2026-10-11T10:59:41.066Z",
+    "hasIcon": true,
+    "modded": false,
+    "snapshotVersion": false,
+    "difficulty": "normal",
+    "difficultyLocked": false,
+    "cheats": false,
+    "seed": "-8108805772252209373",
+    "day": 0,
+    "weather": "clear",
+    "spawn": [
+      16,
+      71,
+      -160
+    ],
+    "brands": [
+      "vanilla"
+    ],
+    "dataPacks": {
+      "enabled": [
+        "vanilla"
+      ],
+      "disabled": [
+        "bundle",
+        "trade_rebalance",
+        "update_1_21"
+      ]
+    },
+    "gameRules": {
+      "announceAdvancements": "true",
+      "blockExplosionDropDecay": "true",
+      "commandBlockOutput": "true",
+      "commandModificationBlockLimit": "32768",
+      "disableElytraMovementCheck": "false",
+      "disableRaids": "false",
+      "doDaylightCycle": "true",
+      "doEntityDrops": "true",
+      "doFireTick": "true",
+      "doImmediateRespawn": "false",
+      "doInsomnia": "true",
+      "doLimitedCrafting": "false",
+      "doMobLoot": "true",
+      "doMobSpawning": "true",
+      "doPatrolSpawning": "true",
+      "doTileDrops": "true",
+      "doTraderSpawning": "true",
+      "doVinesSpread": "true",
+      "doWardenSpawning": "true",
+      "doWeatherCycle": "true",
+      "drowningDamage": "true",
+      "enderPearlsVanishOnDeath": "true",
+      "fallDamage": "true",
+      "fireDamage": "true",
+      "forgiveDeadPlayers": "true",
+      "freezeDamage": "true",
+      "globalSoundEvents": "true",
+      "keepInventory": "false",
+      "lavaSourceConversion": "false",
+      "logAdminCommands": "true",
+      "maxCommandChainLength": "65536",
+      "maxCommandForkCount": "65536",
+      "maxEntityCramming": "24",
+      "mobExplosionDropDecay": "true",
+      "mobGriefing": "true",
+      "naturalRegeneration": "true",
+      "playersNetherPortalCreativeDelay": "1",
+      "playersNetherPortalDefaultDelay": "80",
+      "playersSleepingPercentage": "100",
+      "projectilesCanBreakBlocks": "true",
+      "randomTickSpeed": "3",
+      "reducedDebugInfo": "false",
+      "sendCommandFeedback": "true",
+      "showDeathMessages": "true",
+      "snowAccumulationHeight": "1",
+      "spawnChunkRadius": "2",
+      "spawnRadius": "10",
+      "spectatorsGenerateChunks": "true",
+      "tntExplosionDropDecay": "false",
+      "universalAnger": "false",
+      "waterSourceConversion": "true"
+    },
+    "player": {
+      "dimension": "minecraft:overworld",
+      "pos": [
+        89.64364158844737,
+        63,
+        -150.69999998807907
+      ],
+      "health": 20,
+      "food": 20,
+      "xpLevel": 0
+    },
+    "stats": {
+      "playTimeSeconds": 53,
+      "deaths": 0,
+      "mobKills": 0,
+      "distanceMeters": 121,
+      "jumps": 21
+    },
+    "advancements": 2,
+    "sizeBytes": 20128,
+    "dimensions": [
+      {
+        "id": "minecraft:overworld",
+        "regionFiles": 6
+      }
+    ]
+  },
+  "advancementProgress": {
+    "minecraft:adventure/adventuring_time": {
+      "criteria": {
+        "minecraft:plains": true
+      }
+    },
+    "minecraft:story/mine_stone": true,
+    "minecraft:story/root": true
+  }
+}
