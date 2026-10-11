@@ -33,6 +33,7 @@ jobs:
       built: ${{ steps.existing.outputs.skip != 'true' }}
       artifact: ${{ steps.existing.outputs.name }}
       version: ${{ steps.version.outputs.version }}
+      branch: ${{ steps.label.outputs.branch }}
     steps:
       - name: Already built?
         id: existing
@@ -71,6 +72,7 @@ jobs:
       # "-". The commit time (UTC) orders builds of one branch for the app's
       # update check.
       - name: Version label
+        id: label
         if: steps.existing.outputs.skip != 'true'
         env:
           BRANCH: ${{ github.head_ref || github.ref_name }}
@@ -78,6 +80,10 @@ jobs:
           branch=$(printf '%s' "$BRANCH" | tr '[:upper:]' '[:lower:]' | sed -e 's/[^0-9a-z-]/-/g' -e 's/^-*//' -e 's/-*$//')
           when=$(TZ=UTC git log -1 --date=format-local:%Y%m%d%H%M --format=%cd "$COMMIT")
           echo "DEV_LABEL=${branch:-build}.${when}.$(git rev-parse --short=7 "$COMMIT")" >> "$GITHUB_ENV"
+          echo "branch=${branch:-build}" >> "$GITHUB_OUTPUT"
+          # Test build tags (dev, dev-<branch>) are not versions: base the
+          # version on the last release tag.
+          echo "GORELEASER_CURRENT_TAG=$(git describe --tags --abbrev=0 --match 'v*' "$COMMIT")" >> "$GITHUB_ENV"
 
       # Same build settings as releases (GUI subsystem, version stamp), only
       # the windows/amd64 target.
@@ -112,35 +118,46 @@ jobs:
             echo "Commit \`${COMMIT}\`. Download \`worldkeeper.exe\` from **Artifacts** below (kept for 14 days). Test build, not a release."
           } >> "$GITHUB_STEP_SUMMARY"
 
-  # Every push to develop replaces the "dev" pre-release with its build, so it
-  # can be downloaded without signing in to GitHub; Worldkeeper offers it on
-  # the "Test builds" update channel. Pull request builds stay artifacts.
+  # Every push to develop replaces the "dev" pre-release with its build, and
+  # every push to a pull request's branch the "dev-<branch>" one, so they can
+  # be downloaded without signing in to GitHub; Worldkeeper offers them on the
+  # "Test builds" update channel. dev-build-cleanup.yml removes a branch's
+  # pre-release when its pull request closes. Forks and Dependabot get
+  # read-only tokens, so their builds stay artifacts.
   publish:
     needs: windows-amd64
-    if: github.event_name == 'push' && github.ref == 'refs/heads/develop' && needs.windows-amd64.outputs.built == 'true'
+    if: >-
+      needs.windows-amd64.outputs.built == 'true' && (
+        (github.event_name == 'push' && github.ref == 'refs/heads/develop') ||
+        (github.event_name == 'pull_request' &&
+         github.event.pull_request.head.repo.full_name == github.repository &&
+         github.event.pull_request.user.login != 'dependabot[bot]'))
     runs-on: ubuntu-latest
     permissions:
       contents: write # to replace the release
       actions: read # to download the build
     concurrency:
-      group: dev-release
+      group: dev-release-${{ needs.windows-amd64.outputs.branch }}
       cancel-in-progress: true # the newest push wins
     steps:
       - uses: actions/download-artifact@v4
         with:
           name: ${{ needs.windows-amd64.outputs.artifact }}
-      - name: Replace the dev pre-release
+      - name: Replace the branch's pre-release
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           VERSION: ${{ needs.windows-amd64.outputs.version }}
+          BRANCH: ${{ needs.windows-amd64.outputs.branch }}
         run: |
           # The app reads the version from the title and downloads this
           # archive by name (internal/update).
           zip -j worldkeeper_windows_amd64.zip worldkeeper.exe
-          gh release delete dev --yes --cleanup-tag || true
-          gh release create dev worldkeeper_windows_amd64.zip \
+          tag=dev
+          [ "$BRANCH" = develop ] || tag="dev-$BRANCH"
+          gh release delete "$tag" --yes --cleanup-tag || true
+          gh release create "$tag" worldkeeper_windows_amd64.zip \
             --prerelease --latest=false --target "$COMMIT" \
             --title "Dev build ${VERSION}" \
             --notes "Test build of \`develop\` at ${COMMIT}, for Windows x64. Not a release: it may have bugs. Worldkeeper offers it when **Settings → Offer updates** is set to **Test builds**."
-          echo "Published [Dev build ${VERSION}](https://github.com/${GH_REPO}/releases/tag/dev)." >> "$GITHUB_STEP_SUMMARY"
+          echo "Published [Dev build ${VERSION}](https://github.com/${GH_REPO}/releases/tag/${tag})." >> "$GITHUB_STEP_SUMMARY"

@@ -781,3 +781,11 @@ a.snapshot-link:hover strong {
   cursor: not-allowed;
   opacity: 0.55;
 }
+label select {
+  font: inherit;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+}

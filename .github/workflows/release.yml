@@ -29,5 +29,8 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Test build tags (dev, dev-<branch>) can sit on the same commit;
+          # the release is the pushed tag.
+          GORELEASER_CURRENT_TAG: ${{ github.ref_name }}
           # Optional: lets GoReleaser open the winget-pkgs pull request.
           WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}

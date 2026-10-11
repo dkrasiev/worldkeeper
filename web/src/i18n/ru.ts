@@ -268,6 +268,10 @@ export const ru: Dict = {
   "settings.channelDevText":
     "Свежие изменения из ветки develop сразу после слияния. Могут содержать ошибки, в том числе в бэкапах.",
   "settings.channelDevUnavailable": "Тестовые сборки делаются только для Windows x64.",
+  "settings.branch": "Ветка",
+  "settings.branchDevelop": "develop: всё слитое",
+  "settings.branchHint":
+    "Пока pull request открыт, у его ветки есть тестовые сборки. Когда его сольют или закроют, будут предлагаться сборки develop.",
   "settings.saved": "Настройки сохранены.",
   "settings.save": "Сохранить настройки",
   "settings.saving": "Сохраняем…",
@@ -302,4 +306,6 @@ export const ru: Dict = {
   "err.invalid_json": "Некорректный запрос: {error}",
   "err.repo_not_missing": "Репозиторий нельзя создать (состояние: {state}).",
   "err.update_channel_unknown": "Неизвестный канал обновлений.",
+  "err.update_branch_invalid": "Недопустимое имя ветки: {branch}",
+  "err.builds_unavailable": "Не удалось получить список тестовых сборок: {error}",
 };

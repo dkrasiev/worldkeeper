@@ -58,16 +58,24 @@ export function SettingsView() {
   const { data: loadedUpdate } = useLoad(api.update, []);
   const [checkedUpdate, setUpdate] = useState<UpdateStatus>();
   const update = checkedUpdate ?? loadedUpdate;
-  const [savedChannel, setSavedChannel] = useState<Settings["updateChannel"]>();
+  // Where updates come from as last saved: channel and test build branch.
+  const [savedSource, setSavedSource] = useState<string>();
+  const [builds, setBuilds] = useState<NonNullable<UpdateStatus["latest"]>[]>();
 
   useEffect(() => {
     if (data) {
       setForm(data);
-      setSavedChannel(data.updateChannel);
+      setSavedSource(`${data.updateChannel}:${data.updateBranch}`);
       setExtra((data.extraSavesDirs ?? []).join("\n"));
       if (data.engine === "restic") api.resticCheck().then(setRestic, () => {});
     }
   }, [data]);
+
+  // The branch list is only needed once test builds are chosen.
+  const testChannel = form?.updateChannel === "dev";
+  useEffect(() => {
+    if (testChannel && !builds) api.testBuilds().then(setBuilds, () => setBuilds([]));
+  }, [testChannel, builds]);
 
   if (error) return <div className="callout error">{errorText(error)}</div>;
   if (!form) return <p className="muted">{t("common.loading")}</p>;
@@ -91,9 +99,10 @@ export function SettingsView() {
       setPassword("");
       setStatus({ ok: true, text: t("settings.saved") });
       setRestic(saved.engine === "restic" ? await api.resticCheck() : undefined);
-      if (saved.updateChannel !== savedChannel) {
-        setSavedChannel(saved.updateChannel);
-        // Offer what the new channel has right away, not at the next daily check.
+      const source = `${saved.updateChannel}:${saved.updateBranch}`;
+      if (source !== savedSource) {
+        setSavedSource(source);
+        // Offer what the new channel or branch has right away, not at the next daily check.
         setUpdate(await api.checkUpdate().catch(() => update));
       }
     } catch (err) {
@@ -268,6 +277,21 @@ export function SettingsView() {
           )}
         </div>
       </div>
+      {testChannel && update?.devBuilds && (
+        <label>
+          {t("settings.branch")}
+          <select value={form.updateBranch} onChange={(e) => set("updateBranch", e.target.value)}>
+            {[...new Set(["develop", ...(builds ?? []).map((b) => b.branch ?? ""), form.updateBranch])]
+              .filter(Boolean)
+              .map((b) => (
+                <option key={b} value={b}>
+                  {b === "develop" ? t("settings.branchDevelop") : b}
+                </option>
+              ))}
+          </select>
+          <span className="hint">{t("settings.branchHint")}</span>
+        </label>
+      )}
       <UpdateCheck status={update} onChange={setUpdate} />
 
       {status && <div className={`callout ${status.ok ? "success" : "error"}`}>{status.text}</div>}
