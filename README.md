@@ -125,11 +125,11 @@ Plural entries use the CLDR categories (`one`, `few`, `many`, `other`, …) that
 | `internal/api` | Local HTTP API (loopback only, token protected) and the embedded UI |
 | `web/` | React + Vite UI; translations in `web/src/i18n/` |
 
-**Dev builds.** Every pull request and every push to `main` gets a Windows x64 test build (`worldkeeper.exe`, versioned like `0.2.0-dev.abc1234`, after the next minor release), made once per commit. To get one, open the *Dev build* run for that commit in the [Actions tab](https://github.com/dkrasiev/worldkeeper/actions/workflows/dev-build.yml) and download it from *Artifacts*. You need to be signed in to GitHub, and artifacts are kept for 14 days. Dev builds are for testing and are not releases.
+**Dev builds.** Every pull request and every push to `develop` gets a Windows x64 test build (`worldkeeper.exe`, versioned like `0.3.0-dev.abc1234`, after the next minor release), made once per commit. To get one, open the *Dev build* run for that commit in the [Actions tab](https://github.com/dkrasiev/worldkeeper/actions/workflows/dev-build.yml) and download it from *Artifacts*. You need to be signed in to GitHub, and artifacts are kept for 14 days. Dev builds are for testing and are not releases.
 
 ### Pull requests and commits
 
-Pull requests are squash-merged: each one becomes a single commit on `main`, titled after the pull request. So the pull request title follows [Conventional Commits](https://www.conventionalcommits.org/): `type: what changed`, e.g. `feat: show progress for long backups` or `fix: no console window for restic on Windows`. Commits inside a pull request can be anything.
+Pull requests are squash-merged: each one becomes a single commit on `develop`, titled after the pull request. So the pull request title follows [Conventional Commits](https://www.conventionalcommits.org/): `type: what changed`, e.g. `feat: show progress for long backups` or `fix: no console window for restic on Windows`. Commits inside a pull request can be anything.
 
 | Type | For | In release notes |
 |---|---|---|
@@ -142,25 +142,29 @@ Pull requests are squash-merged: each one becomes a single commit on `main`, tit
 
 Pushing a `v*` tag builds the release: GoReleaser makes the archives and the GitHub release, and opens the winget pull request if the `WINGET_TOKEN` secret is set. The tag can be on any commit.
 
-**Regular release** from `main`:
+**Branches.** Pull requests go into `develop`, the default branch. `main` holds the latest release. A release fast-forwards `main` to `develop` and is never merged, so both branches keep the same commits (pull requests are squash-merged, and merging `develop` into `main` would squash a whole release into one commit).
+
+**Regular release** of `develop`, once its CI is green:
 
 ```bash
 git switch main && git pull
-git tag -a v0.2.0 -m "v0.2.0"
-git push origin v0.2.0
+git merge --ff-only origin/develop
+git push origin main
+git tag -a v0.3.0 -m "v0.3.0"
+git push origin v0.3.0
 ```
 
-**Hotfix** for a past release, when `main` already has unreleased work. Merge the fix into `main` first, then:
+**Hotfix** for a past release, when `develop` already has unreleased work. Merge the fix into `develop` first, then:
 
 ```bash
-git switch -c release/v0.1 v0.1.0   # or reuse release/v0.1 from an earlier hotfix
+git switch -c release/v0.2 v0.2.0   # or reuse release/v0.2 from an earlier hotfix
 git cherry-pick <fix-commit>
-git push -u origin release/v0.1     # CI runs on release/* branches
-git tag -a v0.1.1 -m "v0.1.1"
-git push origin v0.1.1
+git push -u origin release/v0.2     # CI runs on release/* branches
+git tag -a v0.2.1 -m "v0.2.1"
+git push origin v0.2.1
 ```
 
-Keep `release/v0.1` for later hotfixes (`v0.1.2`, …). If `main` has nothing unreleased, tag `main` instead.
+Keep `release/v0.2` for later hotfixes (`v0.2.2`, …). If `develop` has nothing unreleased, make a regular release instead.
 
 ## License
 

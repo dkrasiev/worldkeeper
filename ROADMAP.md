@@ -53,4 +53,4 @@ Make what already shipped trustworthy before adding more.
 
 ## Branches and releases
 
-Pull requests target `main`, and every pull request runs CI on Windows, macOS and Linux. Releases are tags (`v*`) on `main`, built and published by GoReleaser.
+Pull requests target `develop`, the default branch, and every pull request runs CI on Windows, macOS and Linux. A release fast-forwards `main` to `develop` and tags it (`v*`); GoReleaser builds and publishes it.
