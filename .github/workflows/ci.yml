@@ -40,6 +40,8 @@ jobs:
           distribution: temurin
           java-version: 21
       - run: make web
+      - run: pnpm test
+        working-directory: web
       - run: go vet ./...
       - run: go test ./...
         env:

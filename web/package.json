@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -p . && vite build && touch dist/.gitkeep",
-    "typecheck": "tsc -p ."
+    "typecheck": "tsc -p .",
+    "test": "node --test \"test/*.test.ts\""
   },
   "dependencies": {
     "react": "^19.3.0",

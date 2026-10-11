@@ -596,6 +596,25 @@ label.check input {
   }
 }
 
+/* save page: what changed in the live world since the save */
+.compare {
+  margin-bottom: 16px;
+  border-left: 3px solid var(--accent);
+}
+.compare p {
+  margin: 0 0 8px;
+}
+.delta {
+  margin-left: 4px;
+  white-space: nowrap;
+}
+.delta.up {
+  color: var(--ok);
+}
+.delta.down {
+  color: var(--warn);
+}
+
 /* copyable values (seed) */
 .copy-text {
   display: inline-flex;
