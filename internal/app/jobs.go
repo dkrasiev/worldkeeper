@@ -22,6 +22,7 @@ const (
 	JobBackup  JobKind = "backup"
 	JobRestore JobKind = "restore"
 	JobDelete  JobKind = "delete"
+	JobMove    JobKind = "move"
 )
 
 type JobState string
@@ -39,6 +40,7 @@ const (
 	PhaseSafety  = "safety"
 	PhaseRestore = "restore"
 	PhaseDelete  = "delete"
+	PhaseMove    = "move"
 )
 
 // Job is a backup or restore running in the background, so the HTTP
@@ -56,9 +58,10 @@ type Job struct {
 	StartedAt  time.Time  `json:"startedAt"`
 	FinishedAt *time.Time `json:"finishedAt,omitempty"`
 
-	Snapshot *snapshot.Snapshot `json:"snapshot,omitempty"` // backup result
-	Path     string             `json:"path,omitempty"`     // restore destination
-	Error    *JobError          `json:"error,omitempty"`
+	Snapshot   *snapshot.Snapshot `json:"snapshot,omitempty"`   // backup result
+	Path       string             `json:"path,omitempty"`       // restore destination
+	NewWorldID string             `json:"newWorldId,omitempty"` // a moved world's id
+	Error      *JobError          `json:"error,omitempty"`
 }
 
 // JobError has the same shape as API errors, so the UI words it the same way.
@@ -88,7 +91,7 @@ func (js *jobs) start(kind JobKind, worldID, world string, auto bool) (*Job, err
 	}
 	js.prune()
 	js.seq++
-	phase := map[JobKind]string{JobBackup: PhaseBackup, JobRestore: PhaseRestore, JobDelete: PhaseSafety}[kind]
+	phase := map[JobKind]string{JobBackup: PhaseBackup, JobRestore: PhaseRestore, JobDelete: PhaseSafety, JobMove: PhaseSafety}[kind]
 	j := &Job{
 		ID: fmt.Sprintf("%d", js.seq), Kind: kind, WorldID: worldID, World: world, Auto: auto,
 		State: JobRunning, Phase: phase, StartedAt: time.Now().UTC(),

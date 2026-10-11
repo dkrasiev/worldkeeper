@@ -256,3 +256,45 @@ func TestProgress(t *testing.T) {
 	}
 	done()
 }
+
+func TestRekey(t *testing.T) {
+	s, root := newTestStore(t)
+	world := testworld.Create(t, t.TempDir(), "w", testworld.Options{})
+	old := WorldRef{ID: "minecraft--w", Name: "w", Folder: "w", Source: "minecraft", Path: world}
+	first, _ := s.Create(old, world, Meta{Kind: KindManual})
+	if _, err := s.Create(old, world, Meta{Kind: KindAuto}); err != nil {
+		t.Fatal(err)
+	}
+	// Another world's saves, and an id whose saves were all deleted.
+	if _, err := s.Create(WorldRef{ID: "prism_A--w"}, world, Meta{Kind: KindManual}); err != nil {
+		t.Fatal(err)
+	}
+	gone, _ := s.Create(WorldRef{ID: "prism_B--w"}, world, Meta{Kind: KindManual})
+	if err := s.Delete("prism_B--w", gone.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := s.Rekey(old.ID, WorldRef{ID: "prism_A--w"}); err != ErrIDTaken {
+		t.Errorf("rekey onto another world's saves: err = %v, want ErrIDTaken", err)
+	}
+	moved := WorldRef{ID: "prism_B--w", Name: "w", Folder: "w", Source: "prism:B", Path: filepath.Join("B", "w")}
+	if err := s.Rekey(old.ID, moved); err != nil {
+		t.Fatal(err)
+	}
+	ix, err := s.Get(moved.ID)
+	if err != nil || len(ix.Snapshots) != 2 || ix.World != moved {
+		t.Fatalf("rekeyed index = %+v, err %v", ix, err)
+	}
+	if ix, _ := s.Get(old.ID); len(ix.Snapshots) != 0 {
+		t.Errorf("old id still has saves: %+v", ix)
+	}
+	if _, err := os.Stat(filepath.Join(root, old.ID)); !os.IsNotExist(err) {
+		t.Error("old folder left behind")
+	}
+	if err := s.Extract(moved.ID, first.ID, filepath.Join(t.TempDir(), "x"), nil); err != nil {
+		t.Errorf("extract after rekey: %v", err)
+	}
+	if err := s.Rekey("nothing-here", moved); err != nil {
+		t.Errorf("rekey of a world without saves: %v", err)
+	}
+}

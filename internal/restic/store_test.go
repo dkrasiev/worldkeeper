@@ -317,3 +317,38 @@ func TestLineWriter(t *testing.T) {
 		t.Errorf("lines = %q, buf = %q", lines, buf.String())
 	}
 }
+
+func TestRekey(t *testing.T) {
+	s := newRepo(t)
+	world := testworld.Create(t, t.TempDir(), "w", testworld.Options{})
+	old := snapshot.WorldRef{ID: "minecraft--w", Name: "w", Folder: "w", Source: "minecraft", SourceLabel: "Minecraft Launcher"}
+	for _, kind := range []snapshot.Kind{snapshot.KindManual, snapshot.KindAuto} {
+		if _, err := s.Create(old, world, snapshot.Meta{Kind: kind}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := s.Create(snapshot.WorldRef{ID: "prism_A--w"}, world, snapshot.Meta{Kind: snapshot.KindManual}); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := s.Rekey(old.ID, snapshot.WorldRef{ID: "prism_A--w"}); err != snapshot.ErrIDTaken {
+		t.Errorf("rekey onto another world's saves: err = %v, want ErrIDTaken", err)
+	}
+	moved := snapshot.WorldRef{ID: "prism_B--w", Name: "w", Folder: "w", Source: "prism:B", SourceLabel: "Prism Launcher: B"}
+	if err := s.Rekey(old.ID, moved); err != nil {
+		t.Fatal(err)
+	}
+	ix, err := s.Get(moved.ID)
+	if err != nil || len(ix.Snapshots) != 2 {
+		t.Fatalf("rekeyed index = %+v, err %v", ix, err)
+	}
+	if ix.World.Source != moved.Source || ix.World.SourceLabel != moved.SourceLabel || ix.World.Name != "w" {
+		t.Errorf("world ref = %+v", ix.World)
+	}
+	if ix, _ := s.Get(old.ID); len(ix.Snapshots) != 0 {
+		t.Errorf("old id still has snapshots: %+v", ix)
+	}
+	if err := s.Extract(moved.ID, ix.Snapshots[0].ID, filepath.Join(t.TempDir(), "x"), nil); err != nil {
+		t.Errorf("extract after rekey: %v", err)
+	}
+}

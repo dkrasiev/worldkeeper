@@ -88,9 +88,19 @@ func DefaultSavesDir(env Env) string {
 	return KnownRoots(env)[0].Saves
 }
 
-// Scan finds all worlds under the known roots, custom launcher profiles
-// and extra directories. Duplicate paths are reported once.
-func Scan(env Env, extra []string) []World {
+// Location is a "saves" folder that exists on this computer: a launcher's,
+// one launcher instance's, or one the user added in settings. Worlds are
+// found in locations, and can be moved or restored into one.
+type Location struct {
+	Source string `json:"source"` // world id prefix, e.g. "prism:Fabric 1.21"
+	Label  string `json:"label"`  // e.g. "Prism Launcher: Fabric 1.21"
+	Saves  string `json:"saves"`
+}
+
+// Locations lists the saves folders of the known launchers (each instance
+// on its own), custom launcher profiles and the extra folders. A folder
+// reached in several ways is listed once, under the first.
+func Locations(env Env, extra []string) []Location {
 	roots := KnownRoots(env)
 	roots = append(roots, profileRoots(filepath.Dir(DefaultSavesDir(env)))...)
 	for _, dir := range extra {
@@ -98,27 +108,61 @@ func Scan(env Env, extra []string) []World {
 	}
 
 	seen := map[string]bool{}
-	var worlds []World
+	var out []Location
 	for _, r := range roots {
 		dirs, _ := filepath.Glob(r.Saves)
 		for _, saves := range dirs {
+			if fi, err := os.Stat(saves); err != nil || !fi.IsDir() {
+				continue
+			}
+			key := pathKey(env, saves)
+			if seen[key] {
+				continue
+			}
+			seen[key] = true
 			source, label := r.Source, r.Label
 			if inst := instanceName(r, saves); inst != "" {
 				source += ":" + inst
 				label += ": " + inst
 			}
-			for _, w := range scanSaves(saves, source, label) {
-				key := filepath.Clean(w.Path)
-				if env.GOOS == "windows" || env.GOOS == "darwin" {
-					key = strings.ToLower(key) // case-insensitive file systems
-				}
-				if seen[key] {
-					continue
-				}
-				seen[key] = true
-				worlds = append(worlds, w)
-			}
+			out = append(out, Location{Source: source, Label: label, Saves: saves})
 		}
+	}
+	return out
+}
+
+// CustomLocation is the location an extra saves folder becomes.
+func CustomLocation(dir string) Location {
+	return Location{Source: "custom", Label: "Folder: " + friendlyName(dir), Saves: dir}
+}
+
+// Locate finds the location of a saves folder.
+func Locate(env Env, extra []string, saves string) (Location, bool) {
+	for _, l := range Locations(env, extra) {
+		if SamePath(env, l.Saves, saves) {
+			return l, true
+		}
+	}
+	return Location{}, false
+}
+
+// SamePath reports whether a and b name the same folder, ignoring case
+// where the file system usually does (Windows, macOS).
+func SamePath(env Env, a, b string) bool { return pathKey(env, a) == pathKey(env, b) }
+
+func pathKey(env Env, p string) string {
+	key := filepath.Clean(p)
+	if env.GOOS == "windows" || env.GOOS == "darwin" {
+		key = strings.ToLower(key) // case-insensitive file systems
+	}
+	return key
+}
+
+// Scan finds all worlds in all locations.
+func Scan(env Env, extra []string) []World {
+	var worlds []World
+	for _, l := range Locations(env, extra) {
+		worlds = append(worlds, scanSaves(l.Saves, l.Source, l.Label)...)
 	}
 	sort.Slice(worlds, func(i, j int) bool { return worlds[i].ID < worlds[j].ID })
 	return worlds

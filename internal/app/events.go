@@ -42,6 +42,8 @@ const (
 	CodeWorldRenamed  = "world_renamed"  // params: from, to
 	CodeWorldDeleted  = "world_deleted"  // params: path
 	CodeDeleteFailed  = "delete_failed"  // params: error
+	CodeWorldMoved    = "world_moved"    // params: from, to
+	CodeMoveFailed    = "move_failed"    // params: error
 )
 
 func (a *App) event(kind EventKind, worldID, world, code string, params map[string]string, msg string) {

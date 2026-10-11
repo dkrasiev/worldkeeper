@@ -3,6 +3,7 @@ package discovery
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -124,4 +125,42 @@ func keys(m map[string]World) []string {
 		out = append(out, k)
 	}
 	return out
+}
+
+func TestLocations(t *testing.T) {
+	home := t.TempDir()
+	env := Env{GOOS: "linux", Home: home}
+	official := filepath.Join(home, ".minecraft", "saves")
+	prism := filepath.Join(home, ".local", "share", "PrismLauncher", "instances", "Fabric 1.21", "minecraft", "saves")
+	empty := filepath.Join(home, "empty saves") // a location without worlds yet
+	for _, dir := range []string{official, prism, empty} {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	missing := filepath.Join(home, "gone")
+
+	locs := Locations(env, []string{empty, official, missing}) // official listed twice on purpose
+	var got []string
+	for _, l := range locs {
+		got = append(got, l.Source+"|"+l.Label)
+	}
+	want := []string{
+		"minecraft|Minecraft Launcher",
+		"prism:Fabric 1.21|Prism Launcher: Fabric 1.21",
+		"custom|Folder: empty saves",
+	}
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Errorf("locations = %v, want %v", got, want)
+	}
+
+	if l, ok := Locate(env, nil, prism+string(filepath.Separator)); !ok || l.Source != "prism:Fabric 1.21" {
+		t.Errorf("Locate(prism) = %+v, %v", l, ok)
+	}
+	if _, ok := Locate(env, nil, empty); ok {
+		t.Error("a folder not in the settings is not a location")
+	}
+	if !SamePath(Env{GOOS: "windows"}, `C:\Games\Saves`, `c:\games\saves\`) || SamePath(env, "/a/Saves", "/a/saves") {
+		t.Error("SamePath must ignore case on Windows only (and macOS), not on Linux")
+	}
 }

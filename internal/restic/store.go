@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -290,6 +291,58 @@ func (s *Store) Delete(worldID, snapID string) error {
 		return err
 	}
 	_, err := s.run(ctx, "", "prune")
+	return err
+}
+
+// Rekey retags the world's snapshots with the new id and location. restic
+// rewrites a snapshot to change its tags, so their ids change too.
+func (s *Store) Rekey(from string, to snapshot.WorldRef) error {
+	ctx := context.Background()
+	defer s.invalidate()
+	snaps, err := s.list(ctx)
+	if err != nil {
+		return err
+	}
+	add := []string{tagWorld + to.ID}
+	for prefix, v := range map[string]string{
+		tagName: to.Name, tagFolder: to.Folder, tagSource: to.Source, tagSourceLabel: to.SourceLabel,
+	} {
+		if v != "" {
+			add = append(add, prefix+enc(v))
+		}
+	}
+	// Every earlier value of the location tags goes: they differ between
+	// snapshots taken before and after a rename.
+	remove := map[string]bool{}
+	found := false
+	for _, rs := range snaps {
+		switch parseTags(rs.Tags)[tagWorld] {
+		case to.ID:
+			if to.ID != from {
+				return snapshot.ErrIDTaken
+			}
+		case from:
+			found = true
+			for _, t := range rs.Tags {
+				for _, p := range []string{tagWorld, tagName, tagFolder, tagSource, tagSourceLabel} {
+					if strings.HasPrefix(t, p) && !slices.Contains(add, t) {
+						remove[t] = true
+					}
+				}
+			}
+		}
+	}
+	if !found {
+		return nil
+	}
+	args := []string{"tag", "--tag", tagApp + "," + tagWorld + from}
+	for _, t := range add {
+		args = append(args, "--add", t)
+	}
+	for t := range remove {
+		args = append(args, "--remove", t)
+	}
+	_, err = s.run(ctx, "", args...)
 	return err
 }
 
