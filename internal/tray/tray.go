@@ -22,6 +22,9 @@ type Controller interface {
 	BackupNow() BackupResult
 	AutoBackup() bool
 	SetAutoBackup(on bool) error
+	// StartWithSystem reports whether Worldkeeper starts at login.
+	StartWithSystem() bool
+	SetStartWithSystem(on bool) error
 	Status() Status
 	// Update is the version of a newer release, or "" when up to date.
 	Update() string
@@ -62,6 +65,7 @@ var messages = map[string]map[string]string{
 		"result":         "Done: %d saved, %d skipped",
 		"resultFailed":   "Done: %d saved, %d skipped, %d failed",
 		"auto":           "Back up when a world is closed",
+		"startup":        "Start at login",
 		"update":         "Download version %s",
 		"quit":           "Quit Worldkeeper",
 	},
@@ -76,6 +80,7 @@ var messages = map[string]map[string]string{
 		"result":         "Готово: сохранено %d, пропущено %d",
 		"resultFailed":   "Готово: сохранено %d, пропущено %d, ошибок %d",
 		"auto":           "Бэкап при выходе из мира",
+		"startup":        "Запускать при входе в систему",
 		"update":         "Скачать версию %s",
 		"quit":           "Выйти из Worldkeeper",
 	},

@@ -192,6 +192,52 @@ func TestRetentionSettings(t *testing.T) {
 	}
 }
 
+type fakeAutostart struct {
+	on   bool
+	sets int
+}
+
+func (f *fakeAutostart) Enabled() (bool, error) { return f.on, nil }
+func (f *fakeAutostart) Set(on bool) error      { f.on = on; f.sets++; return nil }
+
+func TestStartWithSystemSetting(t *testing.T) {
+	cfg, err := config.Open(filepath.Join(t.TempDir(), "config.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := app.New(cfg, &secrets.Memory{}, discovery.Env{GOOS: "linux", Home: t.TempDir()}, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	h, token, host := New(a, fstest.MapFS{}), cfg.Get().Token, "127.0.0.1:25599"
+	settings := `{"engine":"zip","storageDir":` + strconv.Quote(t.TempDir()) + `,"keepAuto":5,"pollSeconds":15`
+
+	// Unavailable: not reported, and a request to set it is ignored.
+	if rec := do(h, "GET", "/api/config", host, token, ""); strings.Contains(rec.Body.String(), "startWithSystem") {
+		t.Errorf("reported without autostart: %s", rec.Body)
+	}
+	if rec := do(h, "PUT", "/api/config", host, token, settings+`,"startWithSystem":true}`); rec.Code != 200 {
+		t.Errorf("save without autostart: %d %s", rec.Code, rec.Body)
+	}
+
+	auto := &fakeAutostart{}
+	a.Autostart = auto
+	if rec := do(h, "GET", "/api/config", host, token, ""); !strings.Contains(rec.Body.String(), `"startWithSystem":false`) {
+		t.Errorf("get: %s", rec.Body)
+	}
+	if rec := do(h, "PUT", "/api/config", host, token, settings+`,"startWithSystem":true}`); rec.Code != 200 || !auto.on || !strings.Contains(rec.Body.String(), `"startWithSystem":true`) {
+		t.Errorf("turn on: %d %s", rec.Code, rec.Body)
+	}
+	// Absent or unchanged: the OS entry is not touched.
+	do(h, "PUT", "/api/config", host, token, settings+`}`)
+	do(h, "PUT", "/api/config", host, token, settings+`,"startWithSystem":true}`)
+	// Invalid settings do not change it either.
+	do(h, "PUT", "/api/config", host, token, `{"engine":"zip","storageDir":"relative","keepAuto":5,"pollSeconds":15,"startWithSystem":false}`)
+	if !auto.on || auto.sets != 1 {
+		t.Errorf("on=%v after %d sets, want on after 1", auto.on, auto.sets)
+	}
+	if rec := do(h, "PUT", "/api/config", host, token, settings+`,"startWithSystem":false}`); rec.Code != 200 || auto.on {
+		t.Errorf("turn off: %d %s", rec.Code, rec.Body)
+	}
+}
+
 func TestSnapshotFlow(t *testing.T) {
 	h, token := newServer(t)
 	host := "127.0.0.1:25599"

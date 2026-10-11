@@ -123,6 +123,8 @@ export interface Settings {
   updateBranch: string;
   /** Desktop notification when a world's backups fail and recover. */
   notifications: boolean;
+  /** Read from the OS; absent where autostart is unavailable. */
+  startWithSystem?: boolean;
 }
 
 /** New-release check (GET /api/update). */
