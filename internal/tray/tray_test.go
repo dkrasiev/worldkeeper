@@ -6,6 +6,8 @@ import (
 	"image/png"
 	"testing"
 	"time"
+
+	"github.com/dkrasiev/worldkeeper/internal/icon"
 )
 
 func TestStatusLine(t *testing.T) {
@@ -44,8 +46,8 @@ func TestMessagesComplete(t *testing.T) {
 }
 
 func TestIcons(t *testing.T) {
-	base := block()
-	img, err := png.Decode(bytes.NewReader(encodePNG(scale(withAlert(base), 4))))
+	base := icon.Block()
+	img, err := png.Decode(bytes.NewReader(encodePNG(icon.Scale(withAlert(base), 4))))
 	if err != nil || img.Bounds().Dx() != 64 {
 		t.Fatalf("png: %v %v", err, img.Bounds())
 	}
@@ -53,7 +55,7 @@ func TestIcons(t *testing.T) {
 		t.Errorf("warning dot missing at (48,48): %x %x %x", r>>8, g>>8, b>>8)
 	}
 
-	pngData := encodePNG(scale(base, 2))
+	pngData := encodePNG(icon.Scale(base, 2))
 	ico := encodeICO(pngData, 32)
 	var hdr struct {
 		Reserved, Type, Count uint16

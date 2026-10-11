@@ -45,7 +45,8 @@ Flags:
 `
 
 func main() {
-	attachConsole() // Windows release builds have no console of their own
+	attachConsole()    // Windows release builds have no console of their own
+	prepareMacLaunch() // Worldkeeper.app started from Finder or at login
 	if err := run(); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)

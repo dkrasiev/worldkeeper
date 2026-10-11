@@ -41,8 +41,25 @@ builds:
     goarch: [amd64, arm64]
     ldflags: ["-s -w -X main.version={{.Version}}"]
 
+# Worldkeeper.app for macOS: one universal binary (arm64 + x86_64) from the
+# darwin builds, put into an app bundle by tools/macapp and zipped as
+# Worldkeeper_<version>_macOS.zip, which the release and checksums.txt pick
+# up as extra files. GoReleaser's own app bundles are a Pro feature.
+# The per-architecture darwin archives stay (replace: false) for the command
+# line. Builds without darwin binaries (dev-build.yml) skip this step.
+universal_binaries:
+  - id: darwin-universal
+    ids: [darwin]
+    hooks:
+      post:
+        - cmd: >-
+            go run ./tools/macapp -binary '{{ .Path }}' -version {{ .Version }}
+            -app dist/Worldkeeper.app -zip dist/Worldkeeper_{{ .Version }}_macOS.zip
+          output: true
+
 archives:
-  - formats: [tar.gz]
+  - ids: [darwin, windows, linux] # not darwin-universal: it ships as the app
+    formats: [tar.gz]
     format_overrides:
       - goos: windows
         formats: [zip]
@@ -50,6 +67,12 @@ archives:
 
 checksum:
   name_template: checksums.txt
+  extra_files:
+    - glob: "dist/Worldkeeper_{{ .Version }}_macOS.zip"
+
+release:
+  extra_files:
+    - glob: "dist/Worldkeeper_{{ .Version }}_macOS.zip"
 
 # Release notes are built from the squashed pull request titles, which use
 # Conventional Commits ("feat: …", "fix: …"). Changes that users do not see
