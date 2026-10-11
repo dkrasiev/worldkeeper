@@ -23,6 +23,8 @@ function world(over: Partial<WorldData> = {}): WorldData {
     brands: [],
     dataPacks: { enabled: ["vanilla"], disabled: [] },
     gameRules: { keepInventory: "false", doDaylightCycle: "true" },
+    players: [{ uuid: "steve", owner: true, playTimeSeconds: 3600 }],
+    playerUuid: "steve",
     stats: { playTimeSeconds: 3600, deaths: 0, mobKills: 0, distanceMeters: 0, jumps: 0 },
     advancements: 2,
     sizeBytes: 1000,
@@ -106,4 +108,19 @@ test("unknown dates and missing stats", () => {
   );
   assert.equal(d.saveIsNewer, false);
   assert.deepEqual(d.playTimeSeconds, { from: 0, to: 60 });
+});
+
+test("player data compares only for the same player", () => {
+  const save = world({ playerUuid: "alex", advancements: 7 });
+  // The live world has no data for alex, so the server showed its main player.
+  const now = world({
+    lastPlayed: "2026-10-05T12:00:00Z",
+    advancements: 1,
+    stats: { playTimeSeconds: 60, deaths: 0, mobKills: 0, distanceMeters: 0, jumps: 0 },
+  });
+  const d = compareWorlds(save, now, { "minecraft:story/root": true }, {});
+  assert.equal(d.playTimeSeconds, undefined);
+  assert.equal(d.advancements, undefined);
+  assert.equal(d.saveIsNewer, false); // different players' play time says nothing about the order
+  assert.ok(unchanged(d));
 });

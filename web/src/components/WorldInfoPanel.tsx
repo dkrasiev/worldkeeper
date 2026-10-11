@@ -1,11 +1,49 @@
-import type { WorldData } from "../api";
+import type { PlayerRef, WorldData } from "../api";
 import { useFormat } from "../format";
 import { useI18n } from "../i18n";
 import { CopyText } from "./CopyText";
 import { Field } from "./ui";
 
+// A player's name from the launcher, or their UUID when it never saw them.
+const playerName = (p: PlayerRef) => p.name ?? p.uuid;
+
+// PlayerPicker names whose data the player sections show and, when the
+// world has several players, lets the user pick another one.
+function PlayerPicker({ w, onPlayer }: { w: WorldData; onPlayer?: (uuid: string) => void }) {
+  const { t } = useI18n();
+  const label = (p: PlayerRef) => (p.owner ? t("info.owner", { name: playerName(p) }) : playerName(p));
+  const current = w.players.find((p) => p.uuid === w.playerUuid);
+  if (w.players.length > 1 && onPlayer) {
+    return (
+      <select
+        className="player-select"
+        aria-label={t("info.choosePlayer")}
+        value={w.playerUuid}
+        onChange={(e) => onPlayer(e.target.value)}
+      >
+        {w.players.map((p) => (
+          <option key={p.uuid} value={p.uuid}>
+            {label(p)}
+          </option>
+        ))}
+      </select>
+    );
+  }
+  if (!current) return null;
+  return <span className={current.name ? "" : "mono small"}>{label(current)}</span>;
+}
+
 // WorldInfoPanel shows what was read from a world: the live folder or a save.
-export function WorldInfoPanel({ w, title }: { w: WorldData; title?: string }) {
+// onPlayer switches the player sections to another player of the world.
+export function WorldInfoPanel({
+  w,
+  title,
+  onPlayer,
+}: {
+  w: WorldData;
+  title?: string;
+  onPlayer?: (uuid: string) => void;
+}) {
   const { t } = useI18n();
   const f = useFormat();
   const pos = w.player?.pos?.map((n) => Math.floor(n)).join(", ");
@@ -30,9 +68,14 @@ export function WorldInfoPanel({ w, title }: { w: WorldData; title?: string }) {
         {w.brands.length > 0 && <Field label={t("info.loaders")}>{w.brands.join(", ")}</Field>}
       </dl>
 
+      {(w.players.length > 0 || w.player) && (
+        <div className="player-head">
+          <h3>{t("info.player")}</h3>
+          <PlayerPicker w={w} onPlayer={onPlayer} />
+        </div>
+      )}
       {w.player && (
         <>
-          <h3>{t("info.player")}</h3>
           <dl className="fields">
             <Field label={t("info.dimension")}>{f.dimension(w.player.dimension)}</Field>
             {pos && <Field label={t("info.position")}>{pos}</Field>}
