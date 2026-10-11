@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, "release/**"] # release/* holds hotfixes for a past release
+    branches: [develop, main, "release/**"] # release/* holds hotfixes for a past release
   pull_request:
 
 jobs:
