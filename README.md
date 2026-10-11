@@ -32,11 +32,16 @@ While running, Worldkeeper sits in the system tray (Windows), the menu bar (macO
 - **Open Worldkeeper** opens the web UI;
 - **Back up now** backs up every world that changed since its last save;
 - **Back up when a world is closed** toggles the automatic backup;
+- **Download version …** appears when a newer release is out and opens its page;
 - **Quit Worldkeeper** stops it.
 
 The menu follows the system language (English or Russian). With the tray available, the browser opens on its own only on the very first start. Pass `-no-tray` to run without the icon, for example on a server. On Linux the icon needs a desktop with StatusNotifier support (KDE, or GNOME with the AppIndicator extension), and Worldkeeper runs without it when there is no D-Bus session.
 
 The log is written next to the config, in `worldkeeper.log`. The Activity feed (the last 100 events) is kept there too, in `events.json`, so failures from before a restart stay visible.
+
+### Updates
+
+Worldkeeper checks for a new release on start and then once a day. When one is out, the web UI shows a banner and the tray menu gets a **Download version …** item. It only tells you; to update, download the new archive and replace the program with it. The check is a single request to the GitHub API for the latest release, and nothing about you or your worlds is sent. Turn it off under **Settings → Check for new versions once a day**; **Check now** next to it still works. Development builds never check.
 
 To start Worldkeeper with your computer:
 

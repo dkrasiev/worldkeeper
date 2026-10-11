@@ -10,6 +10,17 @@ export const ru: Dict = {
   "about.releaseNotes": "Что нового",
   "about.report": "Сообщить о проблеме",
 
+  "update.available": "Вышла версия Worldkeeper {version} (у вас {current}).",
+  "update.latest": "Вышла версия {version}.",
+  "update.download": "Скачать",
+  "update.later": "Не сейчас",
+  "update.upToDate": "У вас последняя версия (проверено {when}).",
+  "update.never": "Ещё не проверялось.",
+  "update.failed": "Не удалось проверить обновления: {error}",
+  "update.checkNow": "Проверить сейчас",
+  "update.checking": "Проверяем…",
+  "update.devBuild": "Сборки для разработки не проверяют обновления.",
+
   "nav.worlds": "Миры",
   "nav.activity": "Журнал",
   "nav.settings": "Настройки",
@@ -231,6 +242,9 @@ export const ru: Dict = {
   "settings.extra": "Дополнительные папки saves",
   "settings.extraPlaceholder": "По одному пути на строку",
   "settings.extraHint": "Для лаунчеров, о которых Worldkeeper не знает.",
+  "settings.checkUpdates": "Проверять новые версии раз в день",
+  "settings.checkUpdatesHint":
+    "Worldkeeper только спрашивает у GitHub, какая версия последняя. Ничего о вас и ваших мирах не отправляется.",
   "settings.saved": "Настройки сохранены.",
   "settings.save": "Сохранить настройки",
   "settings.saving": "Сохраняем…",

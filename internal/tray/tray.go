@@ -23,6 +23,10 @@ type Controller interface {
 	AutoBackup() bool
 	SetAutoBackup(on bool) error
 	Status() Status
+	// Update is the version of a newer release, or "" when up to date.
+	Update() string
+	// OpenUpdate opens the newer release's download page.
+	OpenUpdate()
 }
 
 type BackupResult struct {
@@ -52,6 +56,7 @@ var messages = map[string]map[string]string{
 		"result":         "Done: %d saved, %d skipped",
 		"resultFailed":   "Done: %d saved, %d skipped, %d failed",
 		"auto":           "Back up when a world is closed",
+		"update":         "Download version %s",
 		"quit":           "Quit Worldkeeper",
 	},
 	"ru": {
@@ -65,6 +70,7 @@ var messages = map[string]map[string]string{
 		"result":         "Готово: сохранено %d, пропущено %d",
 		"resultFailed":   "Готово: сохранено %d, пропущено %d, ошибок %d",
 		"auto":           "Бэкап при выходе из мира",
+		"update":         "Скачать версию %s",
 		"quit":           "Выйти из Worldkeeper",
 	},
 }

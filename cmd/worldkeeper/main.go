@@ -180,6 +180,7 @@ func serve(a *app.App, log *slog.Logger, openUI, useTray bool) error {
 		stop()
 	}()
 	go a.Watch(ctx)
+	go a.WatchUpdates(ctx)
 
 	storage := cfg.StorageDir
 	if cfg.Engine == config.EngineRestic {
@@ -264,6 +265,23 @@ func (c *trayController) SetAutoBackup(on bool) error {
 func (c *trayController) Status() tray.Status {
 	h := c.app.Health()
 	return tray.Status{LastBackup: h.LastBackup, FailingWorld: h.FailingWorld, Error: h.Error}
+}
+
+func (c *trayController) Update() string {
+	if st := c.app.UpdateStatus(); st.Available {
+		return st.Latest.Version
+	}
+	return ""
+}
+
+func (c *trayController) OpenUpdate() {
+	st := c.app.UpdateStatus()
+	if st.Latest == nil {
+		return
+	}
+	if err := openBrowser(st.Latest.URL); err != nil {
+		c.log.Warn("could not open browser", "err", err)
+	}
 }
 
 func alreadyRunning(addr string) bool {

@@ -34,10 +34,22 @@ func Run(ctx context.Context, c Controller, locale string, log *slog.Logger) err
 		systray.AddSeparator()
 		about := systray.AddMenuItem("Worldkeeper "+c.Version(), "")
 		about.Disable()
+		upd := systray.AddMenuItem("", "")
+		upd.Hide() // until a newer release is found
 		quit := systray.AddMenuItem(text(locale, "quit"), "")
 
 		failing := false
+		offered := "" // version the update item shows
 		refresh := func() {
+			if v := c.Update(); v != offered {
+				offered = v
+				if v != "" {
+					upd.SetTitle(text(locale, "update", v))
+					upd.Show()
+				} else {
+					upd.Hide()
+				}
+			}
 			s := c.Status()
 			line := statusLine(locale, s, time.Now())
 			status.SetTitle(line)
@@ -86,6 +98,8 @@ func Run(ctx context.Context, c Controller, locale string, log *slog.Logger) err
 						log.Warn("toggle auto backup", "err", err)
 					}
 					refresh()
+				case <-upd.ClickedCh:
+					c.OpenUpdate()
 				case <-quit.ClickedCh:
 					systray.Quit()
 					return

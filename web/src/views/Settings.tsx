@@ -1,7 +1,53 @@
 import { useEffect, useState } from "react";
-import { api, type Engine, type ResticStatus, type Settings } from "../api";
+import { api, type Engine, type ResticStatus, type Settings, type UpdateStatus } from "../api";
+import { useFormat } from "../format";
 import { useLoad } from "../hooks";
 import { useI18n } from "../i18n";
+
+// UpdateCheck shows the result of the last update check and checks on request.
+function UpdateCheck() {
+  const { t, errorText } = useI18n();
+  const f = useFormat();
+  const { data } = useLoad(api.update, []);
+  const [checked, setChecked] = useState<UpdateStatus>();
+  const [busy, setBusy] = useState(false);
+  const s = checked ?? data;
+  if (!s) return null;
+  if (!s.versioned) return <p className="hint update-check">{t("update.devBuild")}</p>;
+
+  const check = async () => {
+    setBusy(true);
+    try {
+      setChecked(await api.checkUpdate());
+    } catch (err) {
+      setChecked({ ...s, error: errorText(err) });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <p className="hint update-check">
+      {s.available && s.latest ? (
+        <>
+          {t("update.latest", { version: s.latest.version })}{" "}
+          <a href={s.latest.url} target="_blank" rel="noreferrer">
+            {t("update.download")}
+          </a>
+        </>
+      ) : s.error ? (
+        t("update.failed", { error: s.error })
+      ) : s.checkedAt ? (
+        t("update.upToDate", { when: f.relative(s.checkedAt) })
+      ) : (
+        t("update.never")
+      )}{" "}
+      <button type="button" className="link" disabled={busy} onClick={check}>
+        {busy ? t("update.checking") : t("update.checkNow")}
+      </button>
+    </p>
+  );
+}
 
 export function SettingsView() {
   const { t, errorText } = useI18n();
@@ -180,6 +226,13 @@ export function SettingsView() {
         <textarea className="mono" rows={3} value={extra} onChange={(e) => setExtra(e.target.value)} placeholder={t("settings.extraPlaceholder")} />
         <span className="hint">{t("settings.extraHint")}</span>
       </label>
+
+      <label className="check">
+        <input type="checkbox" checked={form.checkUpdates} onChange={(e) => set("checkUpdates", e.target.checked)} />
+        {t("settings.checkUpdates")}
+      </label>
+      <p className="hint update-hint">{t("settings.checkUpdatesHint")}</p>
+      <UpdateCheck />
 
       {status && <div className={`callout ${status.ok ? "success" : "error"}`}>{status.text}</div>}
       <div className="actions">
