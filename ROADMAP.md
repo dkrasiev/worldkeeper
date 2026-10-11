@@ -24,6 +24,7 @@ Make what already shipped trustworthy before adding more.
 - [#17](https://github.com/dkrasiev/worldkeeper/issues/17) Tray menu language follows the UI language
 - [#39](https://github.com/dkrasiev/worldkeeper/issues/39) Windows: app icon, version info and Start menu entry
 - [#40](https://github.com/dkrasiev/worldkeeper/issues/40) macOS: `Worldkeeper.app` bundle (Launchpad, Spotlight, menu bar only)
+- [#59](https://github.com/dkrasiev/worldkeeper/issues/59) Notify about new releases
 
 ## [v0.4](https://github.com/dkrasiev/worldkeeper/milestone/3): storage and distribution
 
