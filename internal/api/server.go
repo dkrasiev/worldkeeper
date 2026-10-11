@@ -53,6 +53,8 @@ func New(a *app.App, ui fs.FS) http.Handler {
 	mux.HandleFunc("GET /api/worlds/{id}", s.worldInfo)
 	mux.HandleFunc("PATCH /api/worlds/{id}", s.renameWorld)
 	mux.HandleFunc("DELETE /api/worlds/{id}", s.deleteWorld)
+	mux.HandleFunc("POST /api/worlds/{id}/move", s.moveWorld)
+	mux.HandleFunc("GET /api/locations", s.locations)
 	mux.HandleFunc("GET /api/worlds/{id}/icon", s.icon)
 	mux.HandleFunc("GET /api/worlds/{id}/advancements", s.advancements)
 	mux.HandleFunc("GET /api/worlds/{id}/snapshots", s.snapshots)
@@ -174,6 +176,24 @@ func (s *Server) renameWorld(w http.ResponseWriter, r *http.Request) {
 	respond(w, map[string]string{"name": name}, err)
 }
 
+// moveWorld starts a background job; see App.StartMove. The job's
+// newWorldId is where the world page continues.
+func (s *Server) moveWorld(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		SavesDir string `json:"savesDir"`
+	}
+	if !decode(w, r, &body) {
+		return
+	}
+	job, err := s.app.StartMove(r.PathValue("id"), strings.TrimSpace(body.SavesDir))
+	respondStarted(w, job, err)
+}
+
+// locations lists the saves folders a world can be moved or restored into.
+func (s *Server) locations(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, s.app.Locations())
+}
+
 // deleteWorld starts a background job; see App.StartDelete.
 func (s *Server) deleteWorld(w http.ResponseWriter, r *http.Request) {
 	job, err := s.app.StartDelete(r.PathValue("id"))
@@ -233,11 +253,14 @@ func (s *Server) snapshotAdvancements(w http.ResponseWriter, r *http.Request) {
 func (s *Server) restore(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Mode app.RestoreMode `json:"mode"`
+		// SavesDir, if set, is the saves folder to restore a copy or a world
+		// without a local folder into.
+		SavesDir string `json:"savesDir"`
 	}
 	if !decode(w, r, &body) {
 		return
 	}
-	job, err := s.app.StartRestore(r.PathValue("id"), r.PathValue("snap"), body.Mode)
+	job, err := s.app.StartRestoreTo(r.PathValue("id"), r.PathValue("snap"), body.Mode, strings.TrimSpace(body.SavesDir))
 	respondStarted(w, job, err)
 }
 
@@ -527,10 +550,15 @@ func respond(w http.ResponseWriter, v any, err error) {
 	default:
 		code := app.ErrorCode(err)
 		status := map[string]int{
-			"not_found": http.StatusNotFound,
-			"in_use":    http.StatusConflict,
-			"unchanged": http.StatusConflict,
-			"busy":      http.StatusConflict,
+			"not_found":        http.StatusNotFound,
+			"in_use":           http.StatusConflict,
+			"unchanged":        http.StatusConflict,
+			"busy":             http.StatusConflict,
+			"dest_exists":      http.StatusConflict,
+			"id_taken":         http.StatusConflict,
+			"same_location":    http.StatusBadRequest,
+			"not_absolute":     http.StatusBadRequest,
+			"location_replace": http.StatusBadRequest,
 		}[code]
 		if status == 0 {
 			status = http.StatusInternalServerError

@@ -331,3 +331,26 @@ func TestRenameAndDeleteWorld(t *testing.T) {
 		t.Errorf("overview after delete: %s", rec.Body)
 	}
 }
+
+func TestMoveWorld(t *testing.T) {
+	h, token := newServer(t)
+	host := "127.0.0.1:25599"
+	rec := do(h, "GET", "/api/locations", host, token, "")
+	if rec.Code != 200 || !strings.Contains(rec.Body.String(), `"source":"minecraft"`) {
+		t.Fatalf("locations: %d %s", rec.Code, rec.Body)
+	}
+	if rec := do(h, "POST", "/api/worlds/minecraft--w/move", host, token, `{"savesDir":"relative"}`); rec.Code != 400 || !strings.Contains(rec.Body.String(), `"error":"not_absolute"`) {
+		t.Errorf("relative folder: %d %s", rec.Code, rec.Body)
+	}
+	dest := t.TempDir()
+	rec = do(h, "POST", "/api/worlds/minecraft--w/move", host, token, `{"savesDir":`+strconv.Quote(dest)+`}`)
+	if rec.Code != 202 {
+		t.Fatalf("move: %d %s", rec.Code, rec.Body)
+	}
+	if j := waitJob(t, h, token, rec); j.State != app.JobDone || j.NewWorldID != "custom--w" {
+		t.Fatalf("move job = %+v", j)
+	}
+	if rec := do(h, "GET", "/api/worlds/custom--w", host, token, ""); rec.Code != 200 {
+		t.Errorf("moved world: %d %s", rec.Code, rec.Body)
+	}
+}

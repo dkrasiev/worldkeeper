@@ -29,6 +29,7 @@ const (
 	KindManual     Kind = "manual"
 	KindPreRestore Kind = "pre-restore" // taken automatically before a restore overwrites a world
 	KindPreDelete  Kind = "pre-delete"  // taken automatically before a world is deleted
+	KindPreMove    Kind = "pre-move"    // taken automatically before a world is moved
 )
 
 // Rotates reports whether rotation may delete snapshots of this kind. The
@@ -253,6 +254,45 @@ func (s *Store) Delete(worldID, snapID string) error {
 		return err
 	}
 	return os.Remove(s.archivePath(worldID, snapID))
+}
+
+// Rekey renames the world's folder in the storage and updates its index.
+func (s *Store) Rekey(from string, to WorldRef) error {
+	if err := checkName(from); err != nil {
+		return err
+	}
+	if err := checkName(to.ID); err != nil {
+		return err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	ix, err := s.readIndex(from)
+	if err != nil || len(ix.Snapshots) == 0 {
+		return err
+	}
+	if to.ID != from {
+		taken, err := s.readIndex(to.ID)
+		if err != nil {
+			return err
+		}
+		if len(taken.Snapshots) > 0 {
+			return ErrIDTaken
+		}
+		// A folder left with an empty index (every save deleted) is in the way.
+		dir := filepath.Join(s.root(), to.ID)
+		if err := os.Remove(s.indexPath(to.ID)); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+		if err := os.Remove(dir); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+		if err := os.Rename(filepath.Join(s.root(), from), dir); err != nil {
+			return err
+		}
+	}
+	ix.World = to
+	return s.writeIndex(ix)
 }
 
 // Get returns the index of one world. A world without snapshots yields an empty index.

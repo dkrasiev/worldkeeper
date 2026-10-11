@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"path/filepath"
 	"slices"
 	"sort"
 	"sync"
@@ -22,6 +23,7 @@ const (
 	JobBackup  JobKind = "backup"
 	JobRestore JobKind = "restore"
 	JobDelete  JobKind = "delete"
+	JobMove    JobKind = "move"
 )
 
 type JobState string
@@ -39,6 +41,7 @@ const (
 	PhaseSafety  = "safety"
 	PhaseRestore = "restore"
 	PhaseDelete  = "delete"
+	PhaseMove    = "move"
 )
 
 // Job is a backup or restore running in the background, so the HTTP
@@ -56,9 +59,10 @@ type Job struct {
 	StartedAt  time.Time  `json:"startedAt"`
 	FinishedAt *time.Time `json:"finishedAt,omitempty"`
 
-	Snapshot *snapshot.Snapshot `json:"snapshot,omitempty"` // backup result
-	Path     string             `json:"path,omitempty"`     // restore destination
-	Error    *JobError          `json:"error,omitempty"`
+	Snapshot   *snapshot.Snapshot `json:"snapshot,omitempty"`   // backup result
+	Path       string             `json:"path,omitempty"`       // restore destination
+	NewWorldID string             `json:"newWorldId,omitempty"` // a moved world's id
+	Error      *JobError          `json:"error,omitempty"`
 }
 
 // JobError has the same shape as API errors, so the UI words it the same way.
@@ -88,7 +92,7 @@ func (js *jobs) start(kind JobKind, worldID, world string, auto bool) (*Job, err
 	}
 	js.prune()
 	js.seq++
-	phase := map[JobKind]string{JobBackup: PhaseBackup, JobRestore: PhaseRestore, JobDelete: PhaseSafety}[kind]
+	phase := map[JobKind]string{JobBackup: PhaseBackup, JobRestore: PhaseRestore, JobDelete: PhaseSafety, JobMove: PhaseSafety}[kind]
 	j := &Job{
 		ID: fmt.Sprintf("%d", js.seq), Kind: kind, WorldID: worldID, World: world, Auto: auto,
 		State: JobRunning, Phase: phase, StartedAt: time.Now().UTC(),
@@ -192,6 +196,16 @@ func ErrorCode(err error) string {
 		return "unchanged"
 	case errors.Is(err, ErrBusy):
 		return "busy"
+	case errors.Is(err, ErrSameLocation):
+		return "same_location"
+	case errors.Is(err, ErrDestExists):
+		return "dest_exists"
+	case errors.Is(err, ErrNotAbsolute):
+		return "not_absolute"
+	case errors.Is(err, ErrLocationReplace):
+		return "location_replace"
+	case errors.Is(err, snapshot.ErrIDTaken):
+		return "id_taken"
 	default:
 		return "internal"
 	}
@@ -235,6 +249,11 @@ func (a *App) runBackupJob(j *Job, w discovery.World, o BackupOptions) (snapshot
 
 // StartRestore starts a restore in the background; see StartBackup.
 func (a *App) StartRestore(worldID, snapID string, mode RestoreMode) (Job, error) {
+	return a.StartRestoreTo(worldID, snapID, mode, "")
+}
+
+// StartRestoreTo is the background variant of RestoreTo.
+func (a *App) StartRestoreTo(worldID, snapID string, mode RestoreMode, saves string) (Job, error) {
 	ix, err := a.Snapshots().Get(worldID)
 	if err != nil {
 		return Job{}, err
@@ -244,6 +263,14 @@ func (a *App) StartRestore(worldID, snapID string, mode RestoreMode) (Job, error
 	}
 	if mode != RestoreReplace && mode != RestoreCopy {
 		return Job{}, fmt.Errorf("unknown restore mode %q", mode)
+	}
+	if saves != "" {
+		if mode == RestoreReplace {
+			return Job{}, ErrLocationReplace
+		}
+		if !filepath.IsAbs(saves) {
+			return Job{}, ErrNotAbsolute
+		}
 	}
 	if w, err := a.find(worldID); err == nil && mode == RestoreReplace {
 		if err := a.checkInUse(w, false); err != nil {
@@ -255,7 +282,7 @@ func (a *App) StartRestore(worldID, snapID string, mode RestoreMode) (Job, error
 		return Job{}, err
 	}
 	go func() {
-		dest, err := a.restore(worldID, snapID, mode, j)
+		dest, err := a.restore(worldID, snapID, mode, saves, j)
 		a.jobs.finish(j, err, func(j *Job) { j.Path = dest })
 	}()
 	return a.jobCopy(j), nil

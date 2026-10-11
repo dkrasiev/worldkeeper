@@ -1,6 +1,7 @@
 package snapshot
 
 import (
+	"errors"
 	"io"
 	"io/fs"
 )
@@ -26,7 +27,16 @@ type Backend interface {
 	// folder, for reading world info without restoring it. Close the closer
 	// when done.
 	Open(worldID, snapID string) (fs.FS, io.Closer, error)
+	// Rekey files a world's snapshots under another id and records where
+	// the world is now, after it was moved to another location. A world id
+	// is derived from the location, so without this the snapshots would be
+	// left behind. It fails with ErrIDTaken when to.ID already has
+	// snapshots: they belong to another world.
+	Rekey(from string, to WorldRef) error
 }
+
+// ErrIDTaken is returned by Rekey when the new id has snapshots of its own.
+var ErrIDTaken = errors.New("another world's backups use this id")
 
 // Progress reports how many bytes of a backup or restore are done so far.
 // total is 0 while it is not known yet. Implementations call it often, so

@@ -80,7 +80,7 @@ const percent = (job: Job) => (job.total > 0 ? Math.min(100, Math.floor((job.don
 function usePhaseLabel() {
   const { t } = useI18n();
   return (job: Job) =>
-    ({ backup: t("job.backup"), safety: t("job.safety"), restore: t("job.restore"), delete: t("job.delete") })[
+    ({ backup: t("job.backup"), safety: t("job.safety"), restore: t("job.restore"), delete: t("job.delete"), move: t("job.move") })[
       job.phase
     ];
 }
@@ -107,7 +107,7 @@ export function JobProgress({ job }: { job: Job }) {
   );
 }
 
-const chipKeys = { backup: "job.chipBackup", restore: "job.chipRestore", delete: "job.chipDelete" } as const;
+const chipKeys = { backup: "job.chipBackup", restore: "job.chipRestore", delete: "job.chipDelete", move: "job.chipMove" } as const;
 
 /** Running jobs in the top bar, so they stay visible on every page. */
 export function JobsIndicator() {

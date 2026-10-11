@@ -67,7 +67,7 @@ func (a *App) StartDelete(id string) (Job, error) {
 
 func (a *App) deleteWorld(w discovery.World, j *Job) error {
 	name := a.displayName(w)
-	if err := a.saveBeforeDelete(w, j); err != nil {
+	if err := a.saveUnlessSaved(w, snapshot.KindPreDelete, j); err != nil {
 		err = fmt.Errorf("safety snapshot before deleting: %w", err)
 		a.event(EventError, w.ID, name, CodeDeleteFailed, map[string]string{"error": err.Error()}, "Delete failed: "+err.Error())
 		return err
@@ -94,10 +94,10 @@ func (a *App) deleteWorld(w discovery.World, j *Job) error {
 	return nil
 }
 
-// saveBeforeDelete snapshots the world unless a snapshot already holds the
+// saveUnlessSaved snapshots the world as kind unless a snapshot already holds the
 // state it was last saved in. A rename does not move LastPlayed, so the
 // name is compared too; otherwise the world would come back under its old name.
-func (a *App) saveBeforeDelete(w discovery.World, j *Job) error {
+func (a *App) saveUnlessSaved(w discovery.World, kind snapshot.Kind, j *Job) error {
 	if sum, err := worldinfo.ReadSummary(w.Path); err == nil {
 		ix, err := a.Snapshots().Get(w.ID)
 		if err != nil {
@@ -107,6 +107,6 @@ func (a *App) saveBeforeDelete(w discovery.World, j *Job) error {
 			return nil
 		}
 	}
-	_, err := a.backup(w, BackupOptions{Kind: snapshot.KindPreDelete, Progress: a.jobs.progress(j, PhaseSafety)})
+	_, err := a.backup(w, BackupOptions{Kind: kind, Progress: a.jobs.progress(j, PhaseSafety)})
 	return err
 }

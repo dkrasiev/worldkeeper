@@ -2,6 +2,7 @@ import { useState } from "react";
 import { api, ApiError, type Snapshot } from "../api";
 import { AdvancementsPanel } from "../components/Advancements";
 import { DeleteDialog, LoadDialog, useSnapTitle } from "../components/Snapshots";
+import { LocationPicker } from "../components/LocationPicker";
 import { KindBadge, Modal, ModeBadge, WorldIcon } from "../components/ui";
 import { WorldInfoPanel } from "../components/WorldInfoPanel";
 import { useFormat } from "../format";
@@ -12,6 +13,7 @@ import { jobError, JobProgress, useWorldJob } from "../jobs";
 type Dialog =
   | { type: "save"; force?: boolean }
   | { type: "rename" }
+  | { type: "move" }
   | { type: "deleteWorld" }
   | { type: "load"; snap: Snapshot }
   | { type: "delete"; snap: Snapshot };
@@ -41,6 +43,8 @@ export function WorldDetail({ id, onBack }: { id: string; onBack: () => void }) 
     if (j.state === "failed") setNotice({ ok: false, text: errorText(jobError(j)) });
     else if (j.kind === "backup" && j.snapshot) setNotice({ ok: true, text: t("detail.saved", { name: title(j.snapshot) }) });
     else if (j.kind === "delete") setNotice({ ok: true, text: t("deleteWorld.done") });
+    // A moved world has a new id: continue on its new page.
+    else if (j.kind === "move" && j.newWorldId) location.hash = `#/world/${encodeURIComponent(j.newWorldId)}`;
     else if (j.path) setNotice({ ok: true, text: t("detail.loadedInto", { path: j.path }) });
   });
   const run = async (fn: () => Promise<string | void>) => {
@@ -86,6 +90,9 @@ export function WorldDetail({ id, onBack }: { id: string; onBack: () => void }) 
             </button>
             <button disabled={!!job} onClick={() => setDialog({ type: "rename" })}>
               {t("world.rename")}
+            </button>
+            <button disabled={!!job} onClick={() => setDialog({ type: "move" })}>
+              {t("world.move")}
             </button>
             <button disabled={!!job} onClick={() => setDialog({ type: "deleteWorld" })}>
               {t("world.delete")}
@@ -172,6 +179,19 @@ export function WorldDetail({ id, onBack }: { id: string; onBack: () => void }) 
           }
         />
       )}
+      {dialog?.type === "move" && world && (
+        <MoveDialog
+          name={world.name}
+          savesDir={world.savesDir}
+          inUse={world.inUse}
+          onClose={() => setDialog(undefined)}
+          onMove={(saves) =>
+            run(async () => {
+              track(await api.moveWorld(id, saves));
+            })
+          }
+        />
+      )}
       {dialog?.type === "deleteWorld" && world && (
         <Modal title={t("deleteWorld.title", { name: world.name })} onClose={() => setDialog(undefined)}>
           {world.inUse ? (
@@ -200,10 +220,11 @@ export function WorldDetail({ id, onBack }: { id: string; onBack: () => void }) 
           title={title(dialog.snap)}
           missing={missing}
           inUse={!!world?.inUse}
+          savesDir={world?.savesDir}
           onClose={() => setDialog(undefined)}
-          onLoad={(mode) =>
+          onLoad={(mode, savesDir) =>
             run(async () => {
-              track(await api.restore(id, dialog.snap.id, mode));
+              track(await api.restore(id, dialog.snap.id, mode, savesDir));
             })
           }
         />
@@ -313,6 +334,48 @@ function RenameDialog({
           </button>
           <button className="primary" disabled={busy || inUse || !changed}>
             {t("world.rename")}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+function MoveDialog({
+  name,
+  savesDir,
+  inUse,
+  onClose,
+  onMove,
+}: {
+  name: string;
+  savesDir: string;
+  inUse: boolean;
+  onClose: () => void;
+  onMove: (savesDir: string) => void;
+}) {
+  const { t } = useI18n();
+  const [target, setTarget] = useState("");
+  const [busy, setBusy] = useState(false);
+  return (
+    <Modal title={t("move.title", { name })} onClose={onClose}>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          setBusy(true);
+          onMove(target.trim());
+        }}
+      >
+        {inUse && <div className="callout warn">{t("move.exitFirst")}</div>}
+        <p className="muted small">{t("move.from", { path: savesDir })}</p>
+        <LocationPicker label={t("move.to")} value={target} onChange={setTarget} exclude={savesDir} />
+        <p className="muted small">{t("move.hint")}</p>
+        <div className="actions">
+          <button type="button" onClick={onClose}>
+            {t("common.cancel")}
+          </button>
+          <button className="primary" disabled={busy || inUse || !target.trim()}>
+            {t("world.move")}
           </button>
         </div>
       </form>
