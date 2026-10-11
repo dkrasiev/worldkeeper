@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { RestoreMode, Snapshot } from "../api";
 import { useFormat } from "../format";
 import { useI18n } from "../i18n";
+import { LocationPicker } from "./LocationPicker";
 import { Modal } from "./ui";
 
 // Safety snapshots store only what they preceded ("“Label”" or a date);
@@ -13,35 +14,49 @@ export function useSnapTitle() {
   const f = useFormat();
   return (s: Snapshot) => {
     if (s.kind === "pre-delete") return t("snap.beforeDelete");
+    if (s.kind === "pre-move") return t("snap.beforeMove");
     if (s.kind === "pre-restore" && s.label) return t("snap.before", { name: s.label.replace(legacyPrefix, "") });
     return s.label || f.dateTime(s.createdAt);
   };
 }
 
 
+// LoadDialog asks how to load a save. A copy, or a world that is not on
+// this computer, can go into any saves folder; savesDir is passed only when
+// the user picked one.
 export function LoadDialog({
   title,
   missing,
   inUse,
+  savesDir,
   onClose,
   onLoad,
 }: {
   title: string;
   missing: boolean;
   inUse: boolean;
+  /** The local world's saves folder: where a copy goes by default. */
+  savesDir?: string;
   onClose: () => void;
-  onLoad: (mode: RestoreMode) => void;
+  onLoad: (mode: RestoreMode, savesDir?: string) => void;
 }) {
   const { t } = useI18n();
   const [busy, setBusy] = useState(false);
+  const [target, setTarget] = useState(missing ? "" : (savesDir ?? ""));
   const go = (mode: RestoreMode) => {
     setBusy(true);
-    onLoad(mode);
+    const to = target.trim();
+    // A world without a local folder has nothing to replace: picking a
+    // folder makes it a plain restore there.
+    onLoad(missing && to ? "copy" : mode, to || undefined);
   };
   return (
     <Modal title={t("load.title", { name: title })} onClose={onClose}>
       {missing ? (
-        <p>{t("load.missingHint")}</p>
+        <>
+          <p>{t("load.missingHint")}</p>
+          <LocationPicker label={t("load.restoreTo")} value={target} onChange={setTarget} auto={t("location.auto")} />
+        </>
       ) : (
         <>
           {inUse && <div className="callout warn">{t("load.exitFirst")}</div>}
@@ -50,11 +65,12 @@ export function LoadDialog({
               <strong>{t("load.replace")}</strong>
               <span>{t("load.replaceHint")}</span>
             </button>
-            <button className="choice-btn" disabled={busy} onClick={() => go("copy")}>
+            <button className="choice-btn" disabled={busy || !target.trim()} onClick={() => go("copy")}>
               <strong>{t("load.copy")}</strong>
               <span>{t("load.copyHint")}</span>
             </button>
           </div>
+          <LocationPicker label={t("load.copyTo")} value={target} onChange={setTarget} />
         </>
       )}
       <div className="actions">

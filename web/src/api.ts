@@ -1,8 +1,15 @@
 // Typed client for the worldkeeper local API. Types mirror the Go JSON.
 
 export type GameMode = "survival" | "creative" | "adventure" | "spectator" | "";
-export type SnapshotKind = "auto" | "manual" | "pre-restore" | "pre-delete";
+export type SnapshotKind = "auto" | "manual" | "pre-restore" | "pre-delete" | "pre-move";
 export type RestoreMode = "replace" | "copy";
+
+/** A saves folder worlds are found in, and can be moved or restored into. */
+export interface Location {
+  source: string;
+  label: string; // e.g. "Prism Launcher: Fabric 1.21"
+  saves: string;
+}
 
 export interface Snapshot {
   id: string;
@@ -109,6 +116,7 @@ export interface WorldInfo extends WorldData {
   folder: string;
   path: string;
   sourceLabel: string;
+  savesDir: string; // the saves folder the world is in
   inUse: boolean;
 }
 
@@ -177,26 +185,29 @@ export interface ActivityEvent {
     | "restore_failed"
     | "world_renamed"
     | "world_deleted"
-    | "delete_failed";
+    | "delete_failed"
+    | "world_moved"
+    | "move_failed";
   params?: Record<string, string>;
 }
 
 /** A backup or restore running in the background (GET /api/jobs). */
 export interface Job {
   id: string;
-  kind: "backup" | "restore" | "delete";
+  kind: "backup" | "restore" | "delete" | "move";
   worldId: string;
   world: string;
   auto?: boolean; // started by the automatic backup
   state: "running" | "done" | "failed";
   /** A restore over an existing world saves its current state first ("safety"). */
-  phase: "backup" | "safety" | "restore" | "delete";
+  phase: "backup" | "safety" | "restore" | "delete" | "move";
   done: number; // bytes
   total: number; // bytes; 0 while unknown
   startedAt: string;
   finishedAt?: string;
   snapshot?: Snapshot; // backup result
-  path?: string; // restore destination, or the deleted folder
+  path?: string; // restore destination, the deleted folder, or where a world moved to
+  newWorldId?: string; // a moved world's id, which follows its location
   error?: { error: string; message: string };
 }
 
@@ -284,12 +295,16 @@ export const api = {
   rename: (id: string, name: string) => request<{ name: string }>("PATCH", w(id), { name }),
   /** Starts deleting a world (saved first unless already backed up); follow it with jobs(). */
   deleteWorld: (id: string) => request<Job>("DELETE", w(id)),
+  /** Starts moving a world into another saves folder; follow it with jobs(). */
+  moveWorld: (id: string, savesDir: string) => request<Job>("POST", `${w(id)}/move`, { savesDir }),
+  /** Saves folders a world can be moved or restored into. */
+  locations: () => request<Location[]>("GET", "/api/locations"),
   /** Starts a backup; follow it with jobs(). */
   save: (id: string, label: string, note: string, force = false) =>
     request<Job>("POST", `${w(id)}/snapshots`, { label, note, force }),
-  /** Starts a restore; follow it with jobs(). */
-  restore: (id: string, snap: string, mode: RestoreMode) =>
-    request<Job>("POST", `${w(id)}/snapshots/${encodeURIComponent(snap)}/restore`, { mode }),
+  /** Starts a restore; follow it with jobs(). savesDir picks the folder for a copy or a world without a local folder. */
+  restore: (id: string, snap: string, mode: RestoreMode, savesDir?: string) =>
+    request<Job>("POST", `${w(id)}/snapshots/${encodeURIComponent(snap)}/restore`, { mode, savesDir }),
   deleteSnapshot: (id: string, snap: string) =>
     request<{ ok: boolean }>("DELETE", `${w(id)}/snapshots/${encodeURIComponent(snap)}`),
   settings: () => request<Settings>("GET", "/api/config"),

@@ -13,6 +13,7 @@ Automatic backups for Minecraft: Java Edition worlds. Worldkeeper saves a world 
 - **Keeps yesterday, last week and last month.** Besides the newest automatic saves, Worldkeeper can keep one save per day, week and month, so an old state is still there after a long play session. See [Which automatic saves are kept](#which-automatic-saves-are-kept).
 - **Load any save.** You can replace the current world or load the save as a new world next to it, named "… (restored <date>)" so the game lists both. Before replacing, Worldkeeper makes a safety save of the current state, so every restore can be undone.
 - **Rename and delete worlds.** Renaming changes the name shown in the game; the folder keeps its name, so the world stays linked to its saves. Before deleting, Worldkeeper saves the world unless its latest state is already saved, so a deleted world can be loaded back.
+- **Move worlds between launchers.** **Move** puts a world into another saves folder: another launcher, a Prism or CurseForge instance, or any folder you type in. Its saves go along with it. When you load a save as a new world, or restore a world that is not on this computer, you can pick the folder the same way.
 - **World info read from the files:** version, mode, difficulty, seed, in-game day, weather, spawn, player position, health and level, play time, deaths, mobs killed, distance travelled, advancements, size on disk, explored regions per dimension, data packs, game rules, and mod loaders.
 - **Players by name.** Position, statistics and advancements all belong to one player: the world's owner, or the one who played the most in a world without one. In worlds several people played (LAN, a copied server world), pick another player on the world or save page; a save is compared with the world for the same player. Names come from the launcher's `usercache.json` (the official launcher's, or the Prism, Modrinth or CurseForge instance's); players it never saw show as their UUID.
 - **Compare a save with the world now.** A save's page shows what it contains and, while the world is on this computer, what changed in it since: play time, which advancements were earned, regions explored per dimension, the game version, and game rules with a different value.
@@ -121,6 +122,14 @@ Worlds are backed up from inside their folder, so a restore puts the world files
 ```
 
 Each world gets its own folder, named after the launcher and the world folder. If you reinstall your OS, point Worldkeeper at the same backup folder. Your worlds then show up under **Backups without a local world** and can be restored with one click.
+
+### Moving worlds, and several computers
+
+A world's saves are filed under an id made of its location and folder name, such as `minecraft--My_World` or `prism_Fabric_1.21--My_World`. That id is the same on Windows, macOS and Linux, so two computers that share the backup storage (a NAS, a cloud folder, one restic repository) see each other's worlds: a world that is not on this computer is listed under **Backups without a local world**, and restoring it into the official launcher's folder links it to its saves again.
+
+- **Move** files the world's saves under its new id, so they stay with it. If another computer has the same world in the old place, its saves move too, and its next save starts a new history there.
+- **Restoring into another folder** leaves the saves where they are, because another computer may still have the world in its old place. The restored world starts its own history.
+- A folder Worldkeeper does not look in yet is added to **Settings → Extra saves folders**, so the world shows up.
 
 ## Which automatic saves are kept
 

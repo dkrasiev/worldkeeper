@@ -120,10 +120,11 @@ export function SnapshotDetail({ id, snapId, onBack }: { id: string; snapId: str
           title={title(snap)}
           missing={missing}
           inUse={!!world.data?.inUse}
+          savesDir={world.data?.savesDir}
           onClose={() => setDialog(undefined)}
-          onLoad={(mode) =>
+          onLoad={(mode, savesDir) =>
             run(async () => {
-              track(await api.restore(id, snapId, mode));
+              track(await api.restore(id, snapId, mode, savesDir));
             })
           }
         />
