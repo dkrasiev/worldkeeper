@@ -10,9 +10,10 @@ import (
 type Backend interface {
 	// Create snapshots worldDir.
 	Create(ref WorldRef, worldDir string, m Meta) (Snapshot, error)
-	// Prune deletes the oldest automatic snapshots beyond keep and returns their ids.
-	// Only kinds for which Kind.Rotates is true are pruned.
-	Prune(worldID string, keep int) ([]string, error)
+	// Prune deletes the automatic snapshots that r does not keep and returns
+	// their ids. Only kinds for which Kind.Rotates is true are pruned, and an
+	// empty r prunes nothing.
+	Prune(worldID string, r Retention) ([]string, error)
 	Delete(worldID, snapID string) error
 	// Get returns one world's snapshots, newest first.
 	Get(worldID string) (Index, error)

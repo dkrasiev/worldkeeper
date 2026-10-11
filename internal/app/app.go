@@ -320,7 +320,9 @@ func (a *App) doBackup(w discovery.World, o BackupOptions) (snapshot.Snapshot, e
 		a.notifyRecovered(sum.Name)
 	}
 
-	if removed, err := store.Prune(w.ID, a.Config.Get().KeepAuto); err != nil {
+	cfg := a.Config.Get()
+	keep := snapshot.Retention{Last: cfg.KeepAuto, Daily: cfg.KeepDaily, Weekly: cfg.KeepWeekly, Monthly: cfg.KeepMonthly}
+	if removed, err := store.Prune(w.ID, keep); err != nil {
 		a.Log.Warn("prune failed", "world", w.ID, "err", err)
 	} else if len(removed) > 0 {
 		a.Log.Info("pruned old snapshots", "world", w.ID, "removed", removed)

@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 	"time"
 
@@ -74,7 +75,7 @@ func TestPruneKeepsManual(t *testing.T) {
 		ids = append(ids, snap.ID)
 	}
 
-	removed, err := s.Prune("w", 2)
+	removed, err := s.Prune("w", Retention{Last: 2})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -88,6 +89,56 @@ func TestPruneKeepsManual(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(root, "w", ids[1]+".zip")); !os.IsNotExist(err) {
 		t.Error("pruned archive still on disk")
+	}
+}
+
+func TestPruneByCalendar(t *testing.T) {
+	s, _ := newTestStore(t)
+	s.loc = time.UTC
+	world := testworld.Create(t, t.TempDir(), "w", testworld.Options{})
+	ref := WorldRef{ID: "w"}
+	clock := time.Date(2026, 9, 27, 12, 0, 0, 0, time.UTC)
+	s.now = func() time.Time { return clock }
+
+	// The oldest saves never rotate.
+	for _, k := range []Kind{KindManual, KindPreDelete} {
+		if _, err := s.Create(ref, world, Meta{Kind: k}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// Two automatic saves a day, Monday 2026-09-28 to Wednesday 2026-10-07.
+	for day := 1; day <= 10; day++ {
+		for _, hour := range []int{12, 18} {
+			clock = time.Date(2026, 9, 27+day, hour, 0, 0, 0, time.UTC)
+			if _, err := s.Create(ref, world, Meta{Kind: KindAuto}); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+
+	if _, err := s.Prune("w", Retention{}); err != nil {
+		t.Fatal(err)
+	}
+	if ix, _ := s.Get("w"); len(ix.Snapshots) != 22 {
+		t.Fatalf("an empty policy pruned: %d left", len(ix.Snapshots))
+	}
+
+	removed, err := s.Prune("w", Retention{Last: 1, Daily: 3, Weekly: 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(removed) != 16 {
+		t.Errorf("removed %d: %v", len(removed), removed)
+	}
+	ix, _ := s.Get("w")
+	var got []string
+	for _, snap := range ix.Snapshots {
+		got = append(got, snap.CreatedAt.Format("01-02 15h ")+string(snap.Kind))
+	}
+	// Last 1 and daily 3: Oct 7, 6, 5. Weekly 2: Oct 7 and Sunday Oct 4.
+	want := []string{"10-07 18h auto", "10-06 18h auto", "10-05 18h auto", "10-04 18h auto", "09-27 12h pre-delete", "09-27 12h manual"}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("left %v\nwant %v", got, want)
 	}
 }
 

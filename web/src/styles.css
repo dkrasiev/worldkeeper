@@ -453,9 +453,15 @@ label.check input {
   grid-template-columns: 1fr 1fr;
   gap: 16px;
 }
+.row.four {
+  grid-template-columns: repeat(4, 1fr);
+}
 @media (max-width: 640px) {
   .row {
     grid-template-columns: 1fr;
+  }
+  .row.four {
+    grid-template-columns: 1fr 1fr;
   }
 }
 .settings {

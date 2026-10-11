@@ -233,12 +233,20 @@ export function SettingsView() {
         {t("settings.notifications")}
       </label>
 
+      <div className="field-group">
+        <div className="group-label">{t("settings.keep")}</div>
+        <div className="row four">
+          {(["keepAuto", "keepDaily", "keepWeekly", "keepMonthly"] as const).map((k) => (
+            <label key={k}>
+              {t(`settings.${k}`)}
+              <input type="number" min={0} value={form[k]} onChange={(e) => set(k, Number(e.target.value))} />
+            </label>
+          ))}
+        </div>
+        <span className="hint">{t("settings.keepHint")}</span>
+      </div>
+
       <div className="row">
-        <label>
-          {t("settings.keepAuto")}
-          <input type="number" min={1} value={form.keepAuto} onChange={(e) => set("keepAuto", Number(e.target.value))} />
-          <span className="hint">{t("settings.keepAutoHint")}</span>
-        </label>
         <label>
           {t("settings.poll")}
           <input type="number" min={5} value={form.pollSeconds} onChange={(e) => set("pollSeconds", Number(e.target.value))} />

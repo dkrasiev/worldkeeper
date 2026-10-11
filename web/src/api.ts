@@ -109,7 +109,11 @@ export interface Settings {
   resticPasswordSet?: boolean;
   resticPassword?: string; // write-only
   extraSavesDirs: string[] | null;
-  keepAuto: number;
+  /** Rotation keeps an automatic save if any of these counts keeps it; 0 turns a count off. */
+  keepAuto: number; // the newest N
+  keepDaily: number; // the newest save of each of the last N days with saves
+  keepWeekly: number;
+  keepMonthly: number;
   autoBackup: boolean;
   pollSeconds: number;
   checkUpdates: boolean;

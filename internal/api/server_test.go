@@ -155,6 +155,32 @@ func TestLanguage(t *testing.T) {
 	}
 }
 
+func TestRetentionSettings(t *testing.T) {
+	h, token := newServer(t)
+	host := "127.0.0.1:25599"
+	if rec := do(h, "GET", "/api/config", host, token, ""); !strings.Contains(rec.Body.String(), `"keepDaily":0,"keepWeekly":0,"keepMonthly":0`) {
+		t.Errorf("calendar retention should be off by default: %s", rec.Body)
+	}
+	put := func(keep string) *httptest.ResponseRecorder {
+		return do(h, "PUT", "/api/config", host, token, `{"engine":"zip","storageDir":`+strconv.Quote(t.TempDir())+`,`+keep+`,"pollSeconds":15}`)
+	}
+	// Only calendar rules, no "keep the last N", is a valid policy.
+	if rec := put(`"keepAuto":0,"keepDaily":7,"keepWeekly":4,"keepMonthly":6`); rec.Code != 200 ||
+		!strings.Contains(rec.Body.String(), `"keepAuto":0,"keepDaily":7,"keepWeekly":4,"keepMonthly":6`) {
+		t.Errorf("save: %d %s", rec.Code, rec.Body)
+	}
+	for keep, key := range map[string]string{
+		`"keepAuto":0`:                  "keep_auto_min",
+		`"keepAuto":0,"keepMonthly":0`:  "keep_auto_min",
+		`"keepAuto":5,"keepDaily":-1`:   "keep_negative",
+		`"keepAuto":-1,"keepMonthly":3`: "keep_negative",
+	} {
+		if rec := put(keep); rec.Code != 400 || !strings.Contains(rec.Body.String(), `"key":"`+key+`"`) {
+			t.Errorf("%s: %d %s", keep, rec.Code, rec.Body)
+		}
+	}
+}
+
 func TestSnapshotFlow(t *testing.T) {
 	h, token := newServer(t)
 	host := "127.0.0.1:25599"
