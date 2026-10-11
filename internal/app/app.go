@@ -16,6 +16,7 @@ import (
 	"github.com/dkrasiev/worldkeeper/internal/lock"
 	"github.com/dkrasiev/worldkeeper/internal/restic"
 	"github.com/dkrasiev/worldkeeper/internal/secrets"
+	"github.com/dkrasiev/worldkeeper/internal/shell"
 	"github.com/dkrasiev/worldkeeper/internal/snapshot"
 	"github.com/dkrasiev/worldkeeper/internal/update"
 	"github.com/dkrasiev/worldkeeper/internal/worldinfo"
@@ -199,6 +200,8 @@ type Details struct {
 	discovery.World
 	worldinfo.Info
 	InUse bool `json:"inUse"`
+	// Playable worlds can be started from Worldkeeper (see Play).
+	Playable bool `json:"playable"`
 }
 
 // Info reads the world page. The player sections describe player (a UUID),
@@ -214,7 +217,8 @@ func (a *App) Info(id, player string) (Details, error) {
 	}
 	a.namePlayers(&info, w.SavesDir)
 	inUse, _ := lock.InUse(w.Path)
-	return Details{World: w, Info: info, InUse: inUse}, nil
+	_, playable := shell.PrismCommand(w.SavesDir, w.Folder)
+	return Details{World: w, Info: info, InUse: inUse, Playable: playable}, nil
 }
 
 // namePlayers fills in player names from the launcher's usercache.json.

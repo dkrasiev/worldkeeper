@@ -141,6 +141,10 @@ export const en = {
   "world.rename": "Rename",
   "world.delete": "Delete world",
   "world.move": "Move",
+  "world.openFolder": "Open folder",
+  "world.play": "Play",
+  "world.playing":
+    "Starting the world in Prism Launcher. Minecraft 1.20 and later open it right away; older versions stop at the title screen.",
   "move.title": "Move “{name}”",
   "move.from": "Now in {path}",
   "move.to": "Move to",
@@ -330,6 +334,7 @@ export const en = {
   "err.not_absolute": "Enter the full path to the folder.",
   "err.location_replace": "Replacing a world loads the save in its own folder.",
   "err.id_taken": "Saves of another world are filed under this place already. Pick another folder.",
+  "err.not_playable": "This world can only be started from its launcher.",
   "err.update_channel_unknown": "Unknown update channel.",
   "err.update_branch_invalid": "Invalid branch name: {branch}",
   "err.builds_unavailable": "Cannot list test builds: {error}",

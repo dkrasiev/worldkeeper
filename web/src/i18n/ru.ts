@@ -145,6 +145,10 @@ export const ru: Dict = {
   "world.rename": "Переименовать",
   "world.delete": "Удалить мир",
   "world.move": "Перенести",
+  "world.openFolder": "Открыть папку",
+  "world.play": "Играть",
+  "world.playing":
+    "Запускаем мир в Prism Launcher. Minecraft 1.20 и новее сразу откроет его, более старые версии остановятся на главном экране.",
   "move.title": "Перенести «{name}»",
   "move.from": "Сейчас в {path}",
   "move.to": "Куда перенести",
@@ -344,6 +348,7 @@ export const ru: Dict = {
   "err.not_absolute": "Введите полный путь к папке.",
   "err.location_replace": "При замене сохранение загружается в папку самого мира.",
   "err.id_taken": "На этом месте уже записаны сохранения другого мира. Выберите другую папку.",
+  "err.not_playable": "Этот мир можно запустить только из его лаунчера.",
   "err.update_channel_unknown": "Неизвестный канал обновлений.",
   "err.update_branch_invalid": "Недопустимое имя ветки: {branch}",
   "err.builds_unavailable": "Не удалось получить список тестовых сборок: {error}",

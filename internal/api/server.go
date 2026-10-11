@@ -54,6 +54,8 @@ func New(a *app.App, ui fs.FS) http.Handler {
 	mux.HandleFunc("PATCH /api/worlds/{id}", s.renameWorld)
 	mux.HandleFunc("DELETE /api/worlds/{id}", s.deleteWorld)
 	mux.HandleFunc("POST /api/worlds/{id}/move", s.moveWorld)
+	mux.HandleFunc("POST /api/worlds/{id}/open", s.openFolder)
+	mux.HandleFunc("POST /api/worlds/{id}/play", s.play)
 	mux.HandleFunc("GET /api/locations", s.locations)
 	mux.HandleFunc("GET /api/worlds/{id}/icon", s.icon)
 	mux.HandleFunc("GET /api/worlds/{id}/advancements", s.advancements)
@@ -187,6 +189,16 @@ func (s *Server) moveWorld(w http.ResponseWriter, r *http.Request) {
 	}
 	job, err := s.app.StartMove(r.PathValue("id"), strings.TrimSpace(body.SavesDir))
 	respondStarted(w, job, err)
+}
+
+// openFolder shows the world's folder in the file manager.
+func (s *Server) openFolder(w http.ResponseWriter, r *http.Request) {
+	respond(w, map[string]bool{"ok": true}, s.app.OpenFolder(r.PathValue("id")))
+}
+
+// play starts the world in Prism Launcher; see App.Play.
+func (s *Server) play(w http.ResponseWriter, r *http.Request) {
+	respond(w, map[string]bool{"ok": true}, s.app.Play(r.PathValue("id")))
 }
 
 // locations lists the saves folders a world can be moved or restored into.
@@ -559,6 +571,7 @@ func respond(w http.ResponseWriter, v any, err error) {
 			"same_location":    http.StatusBadRequest,
 			"not_absolute":     http.StatusBadRequest,
 			"location_replace": http.StatusBadRequest,
+			"not_playable":     http.StatusBadRequest,
 		}[code]
 		if status == 0 {
 			status = http.StatusInternalServerError
