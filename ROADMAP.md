@@ -36,8 +36,6 @@ Make what already shipped trustworthy before adding more.
 - [#80](https://github.com/dkrasiev/worldkeeper/issues/80) Recognize a world across computers and tell which copy is newer
 - [#81](https://github.com/dkrasiev/worldkeeper/issues/81) Sync chosen worlds between computers automatically
 - [#82](https://github.com/dkrasiev/worldkeeper/issues/82) Warn when a world is open on another computer, or needs a newer game
-- [#86](https://github.com/dkrasiev/worldkeeper/issues/86) Offer to install restic when it is missing
-- [#87](https://github.com/dkrasiev/worldkeeper/issues/87) Windows installer
 
 ## [Later](https://github.com/dkrasiev/worldkeeper/milestone/4)
 
@@ -48,6 +46,8 @@ Make what already shipped trustworthy before adding more.
 - [#28](https://github.com/dkrasiev/worldkeeper/issues/28) Other games via manifests
 - [#35](https://github.com/dkrasiev/worldkeeper/issues/35) Companion Minecraft mod: save from the pause menu, consistent backups while playing, in-game status
 - [#44](https://github.com/dkrasiev/worldkeeper/issues/44) Publish to winget
+- [#86](https://github.com/dkrasiev/worldkeeper/issues/86) Offer to install restic when it is missing
+- [#87](https://github.com/dkrasiev/worldkeeper/issues/87) Windows installer
 
 ## Not planned
 
