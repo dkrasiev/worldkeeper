@@ -26,7 +26,7 @@ Make what already shipped trustworthy before adding more.
 - [#40](https://github.com/dkrasiev/worldkeeper/issues/40) macOS: `Worldkeeper.app` bundle (Launchpad, Spotlight, menu bar only)
 - [#59](https://github.com/dkrasiev/worldkeeper/issues/59) Notify about new releases
 
-## [v0.4](https://github.com/dkrasiev/worldkeeper/milestone/3): storage and distribution
+## [v0.4](https://github.com/dkrasiev/worldkeeper/milestone/3): storage, sync and distribution
 
 - [#18](https://github.com/dkrasiev/worldkeeper/issues/18) Restic cloud backends (S3, B2) with credentials in the keychain
 - [#19](https://github.com/dkrasiev/worldkeeper/issues/19) Scheduled restic prune and check
@@ -35,6 +35,9 @@ Make what already shipped trustworthy before adding more.
 - [#22](https://github.com/dkrasiev/worldkeeper/issues/22) Installers: Homebrew tap
 - [#23](https://github.com/dkrasiev/worldkeeper/issues/23) Decide on code signing and notarization
 - [#41](https://github.com/dkrasiev/worldkeeper/issues/41) Linux: desktop entry, icons and `.deb`/`.rpm` packages
+- [#80](https://github.com/dkrasiev/worldkeeper/issues/80) Recognize a world across computers and tell which copy is newer
+- [#81](https://github.com/dkrasiev/worldkeeper/issues/81) Sync chosen worlds between computers automatically
+- [#82](https://github.com/dkrasiev/worldkeeper/issues/82) Warn when a world is open on another computer, or needs a newer game
 
 ## [Later](https://github.com/dkrasiev/worldkeeper/milestone/4)
 
