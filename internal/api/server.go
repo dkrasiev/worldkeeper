@@ -245,6 +245,7 @@ type settings struct {
 	AutoBackup     bool          `json:"autoBackup"`
 	PollSeconds    int           `json:"pollSeconds"`
 	CheckUpdates   bool          `json:"checkUpdates"`
+	UpdateChannel  string        `json:"updateChannel"`
 
 	ResticPasswordSet bool `json:"resticPasswordSet"` // response only
 	// ResticPassword is write-only: when non-empty it replaces the stored password.
@@ -266,6 +267,7 @@ func (s *Server) toSettings(c config.Config) settings {
 		AutoBackup:        c.AutoBackup,
 		PollSeconds:       int(c.PollInterval.Seconds()),
 		CheckUpdates:      c.CheckUpdates,
+		UpdateChannel:     c.UpdateChannel,
 		ResticPasswordSet: pwSet,
 	}
 }
@@ -330,6 +332,13 @@ func (s *Server) putConfig(w http.ResponseWriter, r *http.Request) {
 		if in.PollSeconds < 5 {
 			return badRequest("poll_min", "check interval must be at least 5 seconds")
 		}
+		switch in.UpdateChannel {
+		case "":
+			in.UpdateChannel = config.ChannelStable // clients from before channels
+		case config.ChannelStable, config.ChannelDev:
+		default:
+			return badRequest("update_channel_unknown", "unknown update channel")
+		}
 		dirs := []string{}
 		for _, d := range in.ExtraSavesDirs {
 			d = strings.TrimSpace(d)
@@ -354,6 +363,7 @@ func (s *Server) putConfig(w http.ResponseWriter, r *http.Request) {
 		c.AutoBackup = in.AutoBackup
 		c.PollInterval = config.Duration{Duration: time.Duration(in.PollSeconds) * time.Second}
 		c.CheckUpdates = in.CheckUpdates
+		c.UpdateChannel = in.UpdateChannel
 		return nil
 	})
 	respond(w, s.toSettings(cfg), err)

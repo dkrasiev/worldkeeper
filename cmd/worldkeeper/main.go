@@ -279,7 +279,11 @@ func (c *trayController) OpenUpdate() {
 	if st.Latest == nil {
 		return
 	}
-	if err := openBrowser(st.Latest.URL); err != nil {
+	url := st.Latest.URL
+	if st.Latest.Download != "" {
+		url = st.Latest.Download // a test build: download it right away
+	}
+	if err := openBrowser(url); err != nil {
 		c.log.Warn("could not open browser", "err", err)
 	}
 }

@@ -8,11 +8,14 @@ before:
 # bar icon needs cgo, which only a Mac can build. Windows and Linux builds
 # are pure Go.
 # Dev builds (goreleaser build --snapshot, see dev-build.yml) are versioned
-# after the next minor release, e.g. 0.2.0-dev.abc1234 after v0.1.0: develop
-# works towards the next minor release, and hotfix releases (v0.1.1, made
-# from a release/v0.1 branch) never share a number with a dev build.
+# after the next minor release, e.g. 0.3.0-develop.202610111530.abc1234 after
+# v0.2.0: develop works towards the next minor release, and hotfix releases
+# (v0.2.1, made from a release/v0.2 branch) never share a number with a dev
+# build. dev-build.yml sets DEV_LABEL to <branch>.<commit time>.<commit>, so
+# builds of one branch sort by commit time; local snapshots fall back to
+# dev.<commit>.
 snapshot:
-  version_template: "{{ incminor .Version }}-dev.{{ .ShortCommit }}"
+  version_template: '{{ incminor .Version }}-{{ if index .Env "DEV_LABEL" }}{{ .Env.DEV_LABEL }}{{ else }}dev.{{ .ShortCommit }}{{ end }}'
 
 builds:
   - id: darwin

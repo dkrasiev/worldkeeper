@@ -8,74 +8,143 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
 )
 
-// LatestURL is GitHub's "latest release" endpoint. It skips drafts and
-// pre-releases, so test builds never get offered.
-const LatestURL = "https://api.github.com/repos/dkrasiev/worldkeeper/releases/latest"
+const (
+	// LatestURL is GitHub's "latest release" endpoint. It skips drafts and
+	// pre-releases, so test builds are never offered from it.
+	LatestURL = "https://api.github.com/repos/dkrasiev/worldkeeper/releases/latest"
+	// DevURL is the "dev" pre-release, which every push to develop replaces
+	// (see .github/workflows/dev-build.yml).
+	DevURL = "https://api.github.com/repos/dkrasiev/worldkeeper/releases/tags/dev"
+
+	// devTitle prefixes the dev pre-release's title; the version follows.
+	devTitle = "Dev build "
+	// DevAsset is the archive in the dev pre-release. Test builds are made
+	// for Windows x64 only.
+	DevAsset = "worldkeeper_windows_amd64.zip"
+)
+
+// DevBuilds reports whether test builds are made for this platform.
+var DevBuilds = runtime.GOOS == "windows" && runtime.GOARCH == "amd64"
+
+// ErrNoDevBuild is returned by Dev when no test build is published.
+var ErrNoDevBuild = errors.New("no test build is published")
 
 // Release is a published version.
 type Release struct {
 	Version string `json:"version"` // without the leading "v", e.g. "0.3.0"
 	URL     string `json:"url"`     // release notes and downloads
+	// Download links straight to the archive for this platform; set for
+	// test builds, which have just one.
+	Download string `json:"download,omitempty"`
+	// Dev marks a test build of the develop branch.
+	Dev bool `json:"dev,omitempty"`
 }
 
 // Checker asks GitHub for the latest release.
 type Checker struct {
 	URL    string // defaults to LatestURL
+	DevURL string // defaults to DevURL
 	Client *http.Client
 }
 
 // Latest returns the newest published release.
 func (c Checker) Latest(ctx context.Context, current string) (Release, error) {
-	url := c.URL
-	if url == "" {
-		url = LatestURL
-	}
-	client := c.Client
-	if client == nil {
-		client = &http.Client{Timeout: 30 * time.Second}
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil {
-		return Release{}, err
-	}
-	req.Header.Set("Accept", "application/vnd.github+json")
-	req.Header.Set("User-Agent", "worldkeeper/"+current) // GitHub rejects requests without one
-	resp, err := client.Do(req)
-	if err != nil {
-		return Release{}, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return Release{}, fmt.Errorf("GitHub answered %s", resp.Status)
-	}
 	var body struct {
 		TagName string `json:"tag_name"`
 		HTMLURL string `json:"html_url"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+	if _, err := c.get(ctx, or(c.URL, LatestURL), current, &body); err != nil {
 		return Release{}, err
 	}
 	v := strings.TrimPrefix(body.TagName, "v")
 	if _, ok := parse(v); !ok {
 		return Release{}, fmt.Errorf("unexpected release tag %q", body.TagName)
 	}
-	if !strings.HasPrefix(body.HTMLURL, "https://") { // it is opened in the browser
+	if !https(body.HTMLURL) {
 		return Release{}, fmt.Errorf("unexpected release page %q", body.HTMLURL)
 	}
 	return Release{Version: v, URL: body.HTMLURL}, nil
 }
+
+// Dev returns the newest test build of develop, or ErrNoDevBuild.
+func (c Checker) Dev(ctx context.Context, current string) (Release, error) {
+	var body struct {
+		Name    string `json:"name"`
+		HTMLURL string `json:"html_url"`
+		Assets  []struct {
+			Name string `json:"name"`
+			URL  string `json:"browser_download_url"`
+		} `json:"assets"`
+	}
+	status, err := c.get(ctx, or(c.DevURL, DevURL), current, &body)
+	if status == http.StatusNotFound {
+		return Release{}, ErrNoDevBuild // between builds the release is briefly missing
+	}
+	if err != nil {
+		return Release{}, err
+	}
+	v := strings.TrimPrefix(body.Name, devTitle)
+	if _, ok := parse(v); !ok || v == body.Name {
+		return Release{}, fmt.Errorf("unexpected test build title %q", body.Name)
+	}
+	rel := Release{Version: v, URL: body.HTMLURL, Dev: true}
+	for _, a := range body.Assets {
+		if a.Name == DevAsset {
+			rel.Download = a.URL
+		}
+	}
+	if !https(rel.URL) || !https(rel.Download) {
+		return Release{}, fmt.Errorf("test build %s has no %s", v, DevAsset)
+	}
+	return rel, nil
+}
+
+// get fetches a GitHub API URL into v and returns the HTTP status.
+func (c Checker) get(ctx context.Context, url, current string, v any) (int, error) {
+	client := c.Client
+	if client == nil {
+		client = &http.Client{Timeout: 30 * time.Second}
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return 0, err
+	}
+	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set("User-Agent", "worldkeeper/"+current) // GitHub rejects requests without one
+	resp, err := client.Do(req)
+	if err != nil {
+		return 0, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return resp.StatusCode, fmt.Errorf("GitHub answered %s", resp.Status)
+	}
+	return resp.StatusCode, json.NewDecoder(resp.Body).Decode(v)
+}
+
+func or(s, def string) string {
+	if s == "" {
+		return def
+	}
+	return s
+}
+
+// https reports whether u is safe to open in the browser.
+func https(u string) bool { return strings.HasPrefix(u, "https://") }
 
 // ErrUnversioned is returned for local builds ("dev"): there is nothing to
 // compare a release with.
 var ErrUnversioned = errors.New("this build has no version number")
 
 // Newer reports whether latest is newer than current. A test build
-// (0.2.0-dev.abc1234) is older than the 0.2.0 release it leads up to.
+// (0.3.0-develop.202610111530.abc1234) is older than the 0.3.0 release it
+// leads up to, and builds of one branch are ordered by commit time.
 func Newer(latest, current string) (bool, error) {
 	c, ok := parse(current)
 	if !ok {

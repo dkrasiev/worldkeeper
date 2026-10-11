@@ -42,7 +42,15 @@ type Config struct {
 	Token string `json:"token"`
 	// CheckUpdates asks GitHub once a day whether a newer release is out.
 	CheckUpdates bool `json:"checkUpdates"`
+	// UpdateChannel is ChannelStable or ChannelDev.
+	UpdateChannel string `json:"updateChannel"`
 }
+
+// Update channels decide which versions the update check offers.
+const (
+	ChannelStable = "stable" // releases only
+	ChannelDev    = "dev"    // also test builds of the develop branch
+)
 
 type Restic struct {
 	// Repo is anything restic accepts: a path, sftp:user@host:/path, rest:http://...
@@ -82,6 +90,7 @@ func Default() Config {
 		PollInterval:   Duration{15 * time.Second},
 		Listen:         "127.0.0.1:25599",
 		CheckUpdates:   true,
+		UpdateChannel:  ChannelStable,
 	}
 }
 
@@ -116,6 +125,9 @@ func Open(path string) (*Store, error) {
 	}
 	if s.cfg.Engine == "" {
 		s.cfg.Engine = EngineZip // configs written before engines existed
+	}
+	if s.cfg.UpdateChannel != ChannelDev {
+		s.cfg.UpdateChannel = ChannelStable // "" or a hand-edited typo
 	}
 	if s.cfg.ExtraSavesDirs == nil {
 		s.cfg.ExtraSavesDirs = []string{} // "null" in a hand-edited file
