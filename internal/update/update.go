@@ -101,28 +101,36 @@ func (c Checker) Dev(ctx context.Context, current, branch string) (Release, erro
 	return devRelease(body)
 }
 
-// Builds lists the published test builds, develop's first and then those of
-// open pull requests by branch name.
+// Builds lists the published test builds: the last few of develop, newest
+// first, then the latest of each open pull request's branch by name.
+// develop's newest build is published twice ("dev" and its own tag) and
+// listed once.
 func (c Checker) Builds(ctx context.Context, current string) ([]Release, error) {
 	var page []ghRelease
 	if _, err := c.get(ctx, "?per_page=100", current, &page); err != nil {
 		return nil, err
 	}
 	builds := []Release{}
+	seen := map[string]bool{}
 	for _, r := range page {
 		if !r.Prerelease || (r.TagName != devTag && !strings.HasPrefix(r.TagName, devTag+"-")) {
 			continue
 		}
-		if rel, err := devRelease(r); err == nil {
+		if rel, err := devRelease(r); err == nil && !seen[rel.Version] {
+			seen[rel.Version] = true
 			builds = append(builds, rel)
 		}
 	}
 	sort.Slice(builds, func(i, j int) bool {
-		a, b := builds[i].Branch, builds[j].Branch
-		if a == DevBranch || b == DevBranch {
-			return a == DevBranch && b != DevBranch
+		a, b := builds[i], builds[j]
+		switch {
+		case a.Branch == DevBranch && b.Branch == DevBranch:
+			newer, _ := Newer(a.Version, b.Version)
+			return newer
+		case a.Branch == DevBranch || b.Branch == DevBranch:
+			return a.Branch == DevBranch
 		}
-		return a < b
+		return a.Branch < b.Branch
 	})
 	return builds, nil
 }

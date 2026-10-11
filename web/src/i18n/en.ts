@@ -256,6 +256,9 @@ export const en = {
   "settings.channelDevUnavailable": "Test builds are made for Windows x64 only.",
   "settings.branch": "Branch",
   "settings.branchDevelop": "develop: everything merged",
+  "settings.builds": "Test builds to download",
+  "settings.buildsHint": "The last few builds of develop, newest first, then the latest build of each open pull request.",
+  "settings.buildRunning": "running",
   "settings.branchHint":
     "A pull request's branch has test builds while the pull request is open. Once it is merged or closed, develop's builds are offered.",
   "settings.saved": "Settings saved.",

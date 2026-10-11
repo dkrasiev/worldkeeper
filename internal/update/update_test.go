@@ -140,6 +140,9 @@ func TestBuilds(t *testing.T) {
 			devPage("dev-fix-tray", "0.3.0-fix-tray.202610111200.1111111") + `,` +
 			`{"tag_name":"v0.2.0","name":"Worldkeeper v0.2.0","prerelease":false,"html_url":"https://example.test/v0.2.0","assets":[]},` +
 			devPage("dev", "0.3.0-develop.202610111300.2222222") + `,` +
+			devPage("dev-0.3.0-develop.202610111300.2222222", "0.3.0-develop.202610111300.2222222") + `,` +
+			devPage("dev-0.3.0-develop.202610101000.4444444", "0.3.0-develop.202610101000.4444444") + `,` +
+			devPage("dev-0.3.0-develop.202610111000.5555555", "0.3.0-develop.202610111000.5555555") + `,` +
 			devPage("dev-feat-autostart", "0.3.0-feat-autostart.202610111400.3333333") + `,` +
 			`{"tag_name":"dev-broken","name":"Dev build ???","prerelease":true,"html_url":"https://example.test/x","assets":[]}` +
 			`]`))
@@ -150,12 +153,13 @@ func TestBuilds(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var branches []string
+	var got []string
 	for _, b := range builds {
-		branches = append(branches, b.Branch)
+		got = append(got, b.Branch+"@"+b.Version[len(b.Version)-7:])
 	}
-	if got := strings.Join(branches, ","); got != "develop,feat-autostart,fix-tray" {
-		t.Errorf("branches = %s, want develop first, then by name, releases and broken builds left out", got)
+	want := "develop@2222222,develop@5555555,develop@4444444,feat-autostart@3333333,fix-tray@1111111"
+	if strings.Join(got, ",") != want {
+		t.Errorf("builds = %s, want %s: develop newest first and once, then branches by name, releases and broken builds left out", strings.Join(got, ","), want)
 	}
 }
 

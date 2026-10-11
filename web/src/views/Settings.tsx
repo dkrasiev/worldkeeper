@@ -292,6 +292,23 @@ export function SettingsView() {
           <span className="hint">{t("settings.branchHint")}</span>
         </label>
       )}
+      {testChannel && update?.devBuilds && builds && builds.length > 0 && (
+        <div className="field-group">
+          <div className="group-label">{t("settings.builds")}</div>
+          <ul className="build-list">
+            {builds.map((b) => (
+              <li key={b.version}>
+                <span className="mono">{b.version}</span>
+                {b.version === update.current && <span className="badge">{t("settings.buildRunning")}</span>}
+                <a href={b.download ?? b.url} target="_blank" rel="noreferrer">
+                  {t("update.download")}
+                </a>
+              </li>
+            ))}
+          </ul>
+          <span className="hint">{t("settings.buildsHint")}</span>
+        </div>
+      )}
       <UpdateCheck status={update} onChange={setUpdate} />
 
       {status && <div className={`callout ${status.ok ? "success" : "error"}`}>{status.text}</div>}

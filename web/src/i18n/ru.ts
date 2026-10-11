@@ -270,6 +270,9 @@ export const ru: Dict = {
   "settings.channelDevUnavailable": "Тестовые сборки делаются только для Windows x64.",
   "settings.branch": "Ветка",
   "settings.branchDevelop": "develop: всё слитое",
+  "settings.builds": "Тестовые сборки для скачивания",
+  "settings.buildsHint": "Несколько последних сборок develop, сначала новые, затем последняя сборка каждого открытого pull request.",
+  "settings.buildRunning": "запущена",
   "settings.branchHint":
     "Пока pull request открыт, у его ветки есть тестовые сборки. Когда его сольют или закроют, будут предлагаться сборки develop.",
   "settings.saved": "Настройки сохранены.",

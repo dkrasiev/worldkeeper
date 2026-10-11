@@ -153,11 +153,22 @@ jobs:
           # The app reads the version from the title and downloads this
           # archive by name (internal/update).
           zip -j worldkeeper_windows_amd64.zip worldkeeper.exe
+          notes="Test build of \`${BRANCH}\` at ${COMMIT}, for Windows x64. Not a release: it may have bugs. Worldkeeper offers it when **Settings → Offer updates** is set to **Test builds**."
+          publish() {
+            gh release create "$1" worldkeeper_windows_amd64.zip \
+              --prerelease --latest=false --target "$COMMIT" \
+              --title "Dev build ${VERSION}" --notes "$notes"
+          }
           tag=dev
           [ "$BRANCH" = develop ] || tag="dev-$BRANCH"
           gh release delete "$tag" --yes --cleanup-tag || true
-          gh release create "$tag" worldkeeper_windows_amd64.zip \
-            --prerelease --latest=false --target "$COMMIT" \
-            --title "Dev build ${VERSION}" \
-            --notes "Test build of \`develop\` at ${COMMIT}, for Windows x64. Not a release: it may have bugs. Worldkeeper offers it when **Settings → Offer updates** is set to **Test builds**."
+          publish "$tag"
+          if [ "$BRANCH" = develop ]; then
+            # Keep the last few develop builds as dev-<version> too, to pick
+            # one in Settings; delete older ones.
+            publish "dev-${VERSION}"
+            gh release list --limit 100 --json tagName,createdAt \
+              --jq '[.[] | select(.tagName | test("^dev-[0-9]+[.][0-9]+[.][0-9]+-develop[.]"))] | sort_by(.createdAt) | reverse | .[5:] | .[].tagName' |
+              while read -r old; do gh release delete "$old" --yes --cleanup-tag; done
+          fi
           echo "Published [Dev build ${VERSION}](https://github.com/${GH_REPO}/releases/tag/${tag})." >> "$GITHUB_STEP_SUMMARY"
