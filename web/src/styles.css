@@ -283,10 +283,13 @@ section + section {
 
 .world-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 20px;
   margin: 12px 0 20px;
   flex-wrap: wrap;
+}
+.world-header > .world-icon {
+  align-self: center;
 }
 .world-header > div {
   flex: 1;
