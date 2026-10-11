@@ -183,6 +183,7 @@ export interface ActivityEvent {
   message: string; // English fallback
   code?:
     | "backup_saved"
+    | "backup_resumed"
     | "backup_failed"
     | "restore_done"
     | "restore_failed"

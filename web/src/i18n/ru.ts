@@ -245,6 +245,7 @@ export const ru: Dict = {
   "event.saved.pre-delete": "Создана страховка перед удалением мира",
   "event.saved.pre-move": "Создана страховка перед переносом мира",
   "event.backup_failed": "Бэкап не удался: {error}",
+  "event.backup_resumed": "Бэкапы снова работают; мир уже был сохранён",
   "event.restore_done": "Восстановлено в {path}",
   "event.restore_failed": "Восстановление не удалось: {error}",
   "event.world_renamed": "Переименован: «{from}» → «{to}»",

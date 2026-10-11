@@ -231,6 +231,7 @@ export const en = {
   "event.saved.pre-delete": "Safety save created before deleting the world",
   "event.saved.pre-move": "Safety save created before moving the world",
   "event.backup_failed": "Backup failed: {error}",
+  "event.backup_resumed": "Backups work again; the world was saved already",
   "event.restore_done": "Restored to {path}",
   "event.restore_failed": "Restore failed: {error}",
   "event.world_renamed": "Renamed from “{from}” to “{to}”",

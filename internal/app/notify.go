@@ -24,7 +24,7 @@ func (a *App) backupFailing(worldID string) bool {
 		switch e.Code {
 		case CodeBackupFailed:
 			return true
-		case CodeBackupSaved:
+		case CodeBackupSaved, CodeBackupResumed:
 			return false
 		}
 	}

@@ -298,7 +298,18 @@ func (a *App) checkInUse(w discovery.World, force bool) error {
 // of a world is announced: the watcher retries it on every pass.
 func (a *App) backup(w discovery.World, o BackupOptions) (snapshot.Snapshot, error) {
 	snap, err := a.doBackup(w, o)
-	if err != nil && !errors.Is(err, ErrInUse) && !errors.Is(err, ErrUnchanged) {
+	switch {
+	case errors.Is(err, ErrUnchanged):
+		// A failed attempt (storage away, restic missing) can be followed by
+		// one that finds the world saved already. Nothing new is stored, but
+		// backups work again: record it, or the failure would stay the
+		// world's latest word until it is played again.
+		if a.backupFailing(w.ID) {
+			name := a.displayName(w)
+			a.event(EventBackup, w.ID, name, CodeBackupResumed, nil, "Backups work again; the world was saved already")
+			a.notifyRecovered(name)
+		}
+	case err != nil && !errors.Is(err, ErrInUse):
 		first := !a.backupFailing(w.ID)
 		a.event(EventError, w.ID, w.Folder, CodeBackupFailed, map[string]string{"error": err.Error()}, "Backup failed: "+err.Error())
 		if first {
