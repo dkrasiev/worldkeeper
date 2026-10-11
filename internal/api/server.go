@@ -36,6 +36,8 @@ func New(a *app.App, ui fs.FS) http.Handler {
 	mux.HandleFunc("GET /api/events", s.events)
 	mux.HandleFunc("GET /api/jobs", s.jobs)
 	mux.HandleFunc("GET /api/about", s.about)
+	mux.HandleFunc("GET /api/update", s.updateStatus)
+	mux.HandleFunc("POST /api/update/check", s.checkUpdate)
 	mux.HandleFunc("GET /api/config", s.getConfig)
 	mux.HandleFunc("PUT /api/config", s.putConfig)
 	mux.HandleFunc("POST /api/restic/check", s.resticCheck)
@@ -106,6 +108,16 @@ func (s *Server) about(w http.ResponseWriter, r *http.Request) {
 		"os":      runtime.GOOS,
 		"arch":    runtime.GOARCH,
 	})
+}
+
+func (s *Server) updateStatus(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, s.app.UpdateStatus())
+}
+
+// checkUpdate asks GitHub now, even when automatic checks are off: the user
+// clicked "Check now".
+func (s *Server) checkUpdate(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, s.app.CheckUpdate(r.Context()))
 }
 
 func (s *Server) events(w http.ResponseWriter, r *http.Request) {
@@ -232,6 +244,7 @@ type settings struct {
 	KeepAuto       int           `json:"keepAuto"`
 	AutoBackup     bool          `json:"autoBackup"`
 	PollSeconds    int           `json:"pollSeconds"`
+	CheckUpdates   bool          `json:"checkUpdates"`
 
 	ResticPasswordSet bool `json:"resticPasswordSet"` // response only
 	// ResticPassword is write-only: when non-empty it replaces the stored password.
@@ -252,6 +265,7 @@ func (s *Server) toSettings(c config.Config) settings {
 		KeepAuto:          c.KeepAuto,
 		AutoBackup:        c.AutoBackup,
 		PollSeconds:       int(c.PollInterval.Seconds()),
+		CheckUpdates:      c.CheckUpdates,
 		ResticPasswordSet: pwSet,
 	}
 }
@@ -339,6 +353,7 @@ func (s *Server) putConfig(w http.ResponseWriter, r *http.Request) {
 		c.KeepAuto = in.KeepAuto
 		c.AutoBackup = in.AutoBackup
 		c.PollInterval = config.Duration{Duration: time.Duration(in.PollSeconds) * time.Second}
+		c.CheckUpdates = in.CheckUpdates
 		return nil
 	})
 	respond(w, s.toSettings(cfg), err)

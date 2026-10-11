@@ -112,6 +112,18 @@ export interface Settings {
   keepAuto: number;
   autoBackup: boolean;
   pollSeconds: number;
+  checkUpdates: boolean;
+}
+
+/** New-release check (GET /api/update). */
+export interface UpdateStatus {
+  current: string;
+  /** False for local builds ("dev"), which are never checked. */
+  versioned: boolean;
+  latest?: { version: string; url: string };
+  available: boolean;
+  checkedAt?: string; // last successful check
+  error?: string; // last check failed
 }
 
 export interface ResticStatus {
@@ -217,6 +229,9 @@ export const api = {
   overview: () => request<Overview>("GET", "/api/overview"),
   events: () => request<ActivityEvent[]>("GET", "/api/events"),
   about: () => request<{ version: string; os: string; arch: string }>("GET", "/api/about"),
+  update: () => request<UpdateStatus>("GET", "/api/update"),
+  /** Asks GitHub for the latest release now. */
+  checkUpdate: () => request<UpdateStatus>("POST", "/api/update/check"),
   world: (id: string) => request<WorldInfo>("GET", w(id)),
   advancements: (id: string) => request<Record<string, unknown>>("GET", `${w(id)}/advancements`),
   snapshotInfo: (id: string, snap: string) =>

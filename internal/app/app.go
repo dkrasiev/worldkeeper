@@ -16,6 +16,7 @@ import (
 	"github.com/dkrasiev/worldkeeper/internal/restic"
 	"github.com/dkrasiev/worldkeeper/internal/secrets"
 	"github.com/dkrasiev/worldkeeper/internal/snapshot"
+	"github.com/dkrasiev/worldkeeper/internal/update"
 	"github.com/dkrasiev/worldkeeper/internal/worldinfo"
 )
 
@@ -35,6 +36,9 @@ type App struct {
 	Env     discovery.Env
 	Log     *slog.Logger
 
+	// UpdateChecker finds new releases; the zero value asks GitHub.
+	UpdateChecker update.Checker
+
 	zip *snapshot.Store
 
 	resticMu    sync.Mutex
@@ -48,6 +52,7 @@ type App struct {
 	snapCache  snapshotCache
 	lastBackup lastBackupCache
 	jobs       jobs
+	updates    updateState
 }
 
 func New(cfg *config.Store, sec secrets.Store, env discovery.Env, log *slog.Logger) *App {

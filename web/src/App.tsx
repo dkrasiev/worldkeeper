@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { token } from "./api";
 import { LOCALES, useI18n, type Locale } from "./i18n";
 import { useHashRoute, useLoad } from "./hooks";
@@ -48,6 +49,7 @@ export function App() {
       </header>
 
       <main className="content">
+        {token && <UpdateBanner />}
         {!token ? (
           <div className="callout error">{t("app.noToken")}</div>
         ) : page === "world" && arg && sub === "save" && subArg ? (
@@ -69,6 +71,43 @@ export function App() {
       </main>
 
       {token && <Footer />}
+    </div>
+  );
+}
+
+const DISMISSED_KEY = "worldkeeper.updateDismissed";
+
+// UpdateBanner announces a newer release until it is installed or the user
+// dismisses that version; the next release shows it again.
+function UpdateBanner() {
+  const { t } = useI18n();
+  const { data } = useLoad(api.update, [], 10 * 60_000);
+  const [dismissed, setDismissed] = useState(() => {
+    try {
+      return localStorage.getItem(DISMISSED_KEY) ?? "";
+    } catch {
+      return "";
+    }
+  });
+  if (!data?.available || !data.latest || dismissed === data.latest.version) return null;
+  const version = data.latest.version;
+  const dismiss = () => {
+    try {
+      localStorage.setItem(DISMISSED_KEY, version);
+    } catch {
+      /* storage blocked: hide until reload */
+    }
+    setDismissed(version);
+  };
+  return (
+    <div className="callout update">
+      <span>{t("update.available", { version, current: data.current })}</span>
+      <a href={data.latest.url} target="_blank" rel="noreferrer">
+        {t("update.download")}
+      </a>
+      <button type="button" className="link" onClick={dismiss}>
+        {t("update.later")}
+      </button>
     </div>
   );
 }

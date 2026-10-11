@@ -11,6 +11,17 @@ export const en = {
   "about.releaseNotes": "What's new",
   "about.report": "Report a problem",
 
+  "update.available": "Worldkeeper {version} is available (you have {current}).",
+  "update.latest": "Version {version} is available.",
+  "update.download": "Download",
+  "update.later": "Not now",
+  "update.upToDate": "You have the latest version (checked {when}).",
+  "update.never": "Not checked yet.",
+  "update.failed": "Could not check for updates: {error}",
+  "update.checkNow": "Check now",
+  "update.checking": "Checking…",
+  "update.devBuild": "Development builds do not check for updates.",
+
   "nav.worlds": "Worlds",
   "nav.activity": "Activity",
   "nav.settings": "Settings",
@@ -217,6 +228,9 @@ export const en = {
   "settings.extra": "Extra saves folders",
   "settings.extraPlaceholder": "One path per line",
   "settings.extraHint": "For launchers Worldkeeper does not know about.",
+  "settings.checkUpdates": "Check for new versions once a day",
+  "settings.checkUpdatesHint":
+    "Worldkeeper only asks GitHub which version is the latest. Nothing about you or your worlds is sent.",
   "settings.saved": "Settings saved.",
   "settings.save": "Save settings",
   "settings.saving": "Saving…",

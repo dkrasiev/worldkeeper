@@ -40,6 +40,8 @@ type Config struct {
 	Listen string `json:"listen"`
 	// Token protects the local API from other websites and local processes.
 	Token string `json:"token"`
+	// CheckUpdates asks GitHub once a day whether a newer release is out.
+	CheckUpdates bool `json:"checkUpdates"`
 }
 
 type Restic struct {
@@ -79,6 +81,7 @@ func Default() Config {
 		AutoBackup:     true,
 		PollInterval:   Duration{15 * time.Second},
 		Listen:         "127.0.0.1:25599",
+		CheckUpdates:   true,
 	}
 }
 

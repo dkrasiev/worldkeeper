@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -94,6 +95,23 @@ func TestAbout(t *testing.T) {
 	rec := do(h, "GET", "/api/about", "127.0.0.1:25599", token, "")
 	if rec.Code != 200 || !strings.Contains(rec.Body.String(), `"version":"test-version"`) {
 		t.Fatalf("about: %d %s", rec.Code, rec.Body)
+	}
+}
+
+func TestUpdateSettings(t *testing.T) {
+	h, token := newServer(t)
+	host := "127.0.0.1:25599"
+	if rec := do(h, "GET", "/api/config", host, token, ""); !strings.Contains(rec.Body.String(), `"checkUpdates":true`) {
+		t.Errorf("update checks should be on by default: %s", rec.Body)
+	}
+	body := `{"engine":"zip","storageDir":` + strconv.Quote(t.TempDir()) + `,"keepAuto":5,"pollSeconds":15,"checkUpdates":false}`
+	if rec := do(h, "PUT", "/api/config", host, token, body); rec.Code != 200 || !strings.Contains(rec.Body.String(), `"checkUpdates":false`) {
+		t.Errorf("turn off: %d %s", rec.Code, rec.Body)
+	}
+	// "test-version" is not a release number, so nothing is fetched.
+	rec := do(h, "POST", "/api/update/check", host, token, "")
+	if rec.Code != 200 || !strings.Contains(rec.Body.String(), `"versioned":false`) || !strings.Contains(rec.Body.String(), `"available":false`) {
+		t.Errorf("check: %d %s", rec.Code, rec.Body)
 	}
 }
 

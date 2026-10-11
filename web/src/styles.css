@@ -739,3 +739,22 @@ a.snapshot-link:hover strong {
     animation: none;
   }
 }
+
+/* new release */
+
+.callout.update {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 16px;
+  border-color: var(--accent);
+}
+.callout.update span {
+  flex: 1 1 auto;
+}
+.update-hint {
+  margin: -10px 0 4px;
+}
+.update-check {
+  margin: 0 0 16px;
+}
