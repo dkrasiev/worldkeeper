@@ -64,3 +64,34 @@ func TestLocateWithoutPATH(t *testing.T) {
 	}
 	t.Logf("Locate without PATH: %s", got)
 }
+
+func TestResolve(t *testing.T) {
+	dir := t.TempDir()
+	name := "restic_0.19.1_windows_amd64.exe" // the file winget installs
+	if err := os.WriteFile(filepath.Join(dir, name), nil, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if got := inDirs([]string{filepath.Join(dir, "missing"), "", dir}, name); got != filepath.Join(dir, name) {
+		t.Errorf("inDirs = %q", got)
+	}
+	// A path from the settings is used as given, found or not.
+	if p := filepath.Join(dir, "x", "restic"); Resolve(p) != p {
+		t.Errorf("Resolve(path) = %q", Resolve(p))
+	}
+	// A bare name: on PATH first; unknown names are passed through.
+	t.Setenv("PATH", dir)
+	if got := Resolve(name); !strings.EqualFold(got, filepath.Join(dir, name)) {
+		t.Errorf("Resolve(%q) with it on PATH = %q", name, got)
+	}
+	if got := Resolve("no-such-restic"); got != "no-such-restic" {
+		t.Errorf("Resolve(unknown) = %q", got)
+	}
+}
+
+// The case from a Windows machine: the settings name winget's restic file,
+// and Worldkeeper's own PATH (started from an archive, before an install)
+// does not have its folder.
+func TestResolveWithoutPATH(t *testing.T) {
+	t.Setenv("PATH", t.TempDir())
+	t.Logf("Resolve(restic_0.19.1_windows_amd64.exe) without PATH: %s", Resolve("restic_0.19.1_windows_amd64.exe"))
+}
