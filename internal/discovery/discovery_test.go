@@ -160,7 +160,8 @@ func TestLocations(t *testing.T) {
 	if _, ok := Locate(env, nil, empty); ok {
 		t.Error("a folder not in the settings is not a location")
 	}
-	if !SamePath(Env{GOOS: "windows"}, `C:\Games\Saves`, `c:\games\saves\`) || SamePath(env, "/a/Saves", "/a/saves") {
+	// Paths any host can clean: on Linux "\" is not a separator.
+	if !SamePath(Env{GOOS: "windows"}, "/games/Saves", "/GAMES/saves/") || SamePath(env, "/a/Saves", "/a/saves") {
 		t.Error("SamePath must ignore case on Windows only (and macOS), not on Linux")
 	}
 }
