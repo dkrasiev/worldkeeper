@@ -15,12 +15,15 @@ import (
 
 	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/registry"
+
+	"github.com/dkrasiev/worldkeeper/internal/shell"
 )
 
 // appID names Worldkeeper as the sender of its toasts. Windows shows toasts
 // only from registered app IDs; an unpackaged app registers its ID under
 // HKCU\Software\Classes\AppUserModelId, no installer or shortcut needed.
-const appID = "dkrasiev.Worldkeeper"
+// The Start menu shortcut carries the same ID (internal/shell).
+const appID = shell.AppUserModelID
 
 var registerOnce = sync.OnceValue(func() error {
 	k, _, err := registry.CreateKey(registry.CURRENT_USER, `Software\Classes\AppUserModelId\`+appID, registry.SET_VALUE)

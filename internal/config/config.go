@@ -60,6 +60,10 @@ type Config struct {
 	// Notifications shows a desktop notification when a world's backups
 	// start failing and when they work again.
 	Notifications bool `json:"notifications"`
+	// StartMenuOffered records that Worldkeeper created its Windows Start
+	// menu shortcut on the first start. It is done once: a shortcut the
+	// user removed stays removed until they add it back from the tray.
+	StartMenuOffered bool `json:"startMenuOffered"`
 }
 
 // Update channels decide which versions the update check offers.

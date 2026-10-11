@@ -33,7 +33,7 @@ Download the file for your system from [Releases](https://github.com/dkrasiev/wo
 | macOS, command line only | `darwin_arm64.tar.gz` (Apple Silicon) / `darwin_amd64.tar.gz` (Intel) |
 | Linux | `linux_amd64.tar.gz` / `linux_arm64.tar.gz` |
 
-**Windows and Linux:** unpack the archive and run `worldkeeper`. On the first start your browser opens the UI at `http://127.0.0.1:25599`.
+**Windows and Linux:** unpack the archive and run `worldkeeper`. On the first start your browser opens the UI at `http://127.0.0.1:25599`. On Windows, put `worldkeeper.exe` where it will stay before the first start: that start also adds Worldkeeper to the [Start menu](#start-menu-windows).
 
 **macOS:** unzip `Worldkeeper_<version>_macOS.zip`, move **Worldkeeper.app** to Applications, and open it. It then shows up in Launchpad and Spotlight, and it lives in the menu bar only, with no Dock icon. On the first start your browser opens the UI at `http://127.0.0.1:25599`. The command line is inside the app: `/Applications/Worldkeeper.app/Contents/MacOS/worldkeeper list`.
 
@@ -51,6 +51,7 @@ While running, Worldkeeper sits in the system tray (Windows), the menu bar (macO
 - **Back up now** backs up every world that changed since its last save;
 - **Back up when a world is closed** toggles the automatic backup;
 - **Start at login** toggles [starting with your computer](#start-with-your-computer);
+- **Show in Start menu** (Windows) adds or removes the [Start menu entry](#start-menu-windows);
 - **Download version …** appears when a newer release is out and opens its page;
 - **Quit Worldkeeper** stops it.
 
@@ -76,7 +77,21 @@ Turn on **Settings → Start Worldkeeper when you log in**, or **Start at login*
 - **macOS:** a LaunchAgent, `~/Library/LaunchAgents/io.github.dkrasiev.worldkeeper.plist`, that starts the program inside Worldkeeper.app (or the command-line one you run). macOS may list it under System Settings → General → Login Items → **Allow in the Background**.
 - **Linux:** an autostart entry, `~/.config/autostart/io.github.dkrasiev.worldkeeper.desktop`, which GNOME, KDE and most other desktops start at login.
 
-If you move the program, start it once from its new place and the entry follows it. On macOS and Linux, if you set up autostart by hand before (Worldkeeper under Login Items → **Open at Login**, a systemd user service, your own autostart entry), remove that one so Worldkeeper does not start twice. To uninstall, turn the setting off before deleting the program.
+If you move the program, start it once from its new place and the entry follows it. On macOS and Linux, if you set up autostart by hand before (Worldkeeper under Login Items → **Open at Login**, a systemd user service, your own autostart entry), remove that one so Worldkeeper does not start twice. To uninstall, turn the setting off before deleting the program (see [Uninstall](#uninstall)).
+
+### Start menu (Windows)
+
+The first start adds a **Worldkeeper** shortcut to the Start menu, `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Worldkeeper.lnk`, so you can start Worldkeeper from there, find it in search, and pin it to Start or the taskbar. Starting it while it already runs opens the web UI.
+
+To remove the entry, uncheck **Show in Start menu** in the tray menu, or delete the shortcut. Worldkeeper does not add it back on later starts; checking the item again does. If you move the program, start it once from its new place and the shortcut follows it. A copy started from a temporary folder (for example, opened straight from the zip without unpacking it) or with `-config` leaves the Start menu alone.
+
+### Uninstall
+
+1. In the tray menu, uncheck **Start at login** and, on Windows, **Show in Start menu**. Then pick **Quit Worldkeeper**.
+2. Delete the program: `worldkeeper.exe` or `worldkeeper`, or Worldkeeper.app from Applications. If you installed it with winget, run `winget uninstall dkrasiev.Worldkeeper`; it removes the program but not the Start menu shortcut or the autostart entry, so do step 1 first.
+3. Delete the config folder, with the settings, the log and the activity feed: `%APPDATA%\worldkeeper` on Windows, `~/Library/Application Support/worldkeeper` on macOS, `~/.config/worldkeeper` on Linux.
+
+If Worldkeeper is already gone, remove what it added by hand: on Windows the shortcut above and the `Worldkeeper` value under `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`; on macOS and Linux the autostart file from [Start with your computer](#start-with-your-computer). Your backups stay in the storage folder or restic repository; delete them separately if you no longer need them. A restic password saved by Worldkeeper stays in the system keychain (Credential Manager on Windows) under `worldkeeper`.
 
 ## Restic storage (optional)
 
@@ -165,9 +180,10 @@ Plural entries use the CLDR categories (`one`, `few`, `many`, `other`, …) that
 | `internal/secrets` | Keeps the restic password in the OS credential store |
 | `internal/app` | Backup and restore logic, auto-backup watcher, activity feed |
 | `internal/api` | Local HTTP API (loopback only, token protected) and the embedded UI |
-| `internal/icon` | The grass-block icon, drawn in code, for the tray and the macOS app |
-| `internal/shell` | Desktop integration: starting at login (Run key, LaunchAgent, XDG autostart) |
+| `internal/icon` | The grass-block icon, drawn in code, for the tray and the macOS and Windows apps |
+| `internal/shell` | Desktop integration: starting at login (Run key, LaunchAgent, XDG autostart), the Windows Start menu shortcut |
 | `tools/macapp` | Packs the macOS release build into `Worldkeeper.app` and zips it |
+| `tools/winicon` | Writes the Windows app icon, which go-winres embeds in `worldkeeper.exe` with the version info |
 | `web/` | React + Vite UI; translations in `web/src/i18n/` |
 
 **Dev builds.** Every pull request and every push to `develop` gets a Windows x64 test build (`worldkeeper.exe`, versioned after the next minor release and the branch, like `0.3.0-develop.202610111530.abc1234` or `0.3.0-feat-autostart.202610111530.abc1234`), made once per commit. Test builds are published as pre-releases anyone can download: `dev` is the newest build of `develop`, `dev-<version>` keeps its last five builds, and `dev-<branch>` is the latest build of an open pull request (deleted when the pull request closes). Builds of forks and Dependabot pull requests stay in the *Dev build* run in the [Actions tab](https://github.com/dkrasiev/worldkeeper/actions/workflows/dev-build.yml), under *Artifacts*: you need to be signed in to GitHub, and they are kept for 14 days. Dev builds are for testing and are not releases.
@@ -187,7 +203,7 @@ Pull requests are squash-merged: each one becomes a single commit on `develop`, 
 
 ### Releasing
 
-Pushing a `v*` tag builds the release: GoReleaser makes the archives, `Worldkeeper.app` for macOS (a universal binary, bundled and zipped by `tools/macapp`), and the GitHub release, and opens the winget pull request if the `WINGET_TOKEN` secret is set. The tag can be on any commit.
+Pushing a `v*` tag builds the release: GoReleaser makes the archives (`worldkeeper.exe` gets its icon and version info from `tools/winicon` and [go-winres](https://github.com/tc-hib/go-winres), in a hook before the build; dev builds too), `Worldkeeper.app` for macOS (a universal binary, bundled and zipped by `tools/macapp`), and the GitHub release, and opens the winget pull request if the `WINGET_TOKEN` secret is set. The tag can be on any commit.
 
 **Branches.** Pull requests go into `develop`, the default branch. `main` holds the latest release. A release fast-forwards `main` to `develop` and is never merged, so both branches keep the same commits (pull requests are squash-merged, and merging `develop` into `main` would squash a whole release into one commit).
 

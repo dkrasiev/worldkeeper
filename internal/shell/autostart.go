@@ -1,8 +1,9 @@
 // Package shell integrates Worldkeeper with the desktop: starting it when
 // the user logs in (a Run registry value on Windows, a LaunchAgent on macOS,
-// an XDG autostart entry elsewhere). The OS keeps the state, so the user can
-// also change it in Task Manager, System Settings or the desktop's autostart
-// settings, and Worldkeeper reads it back from there.
+// an XDG autostart entry elsewhere), and its Start menu shortcut on
+// Windows. The OS keeps the state, so the user can also change it in Task
+// Manager, System Settings, the desktop's autostart settings or the Start
+// menu folder, and Worldkeeper reads it back from there.
 package shell
 
 import (
@@ -11,11 +12,18 @@ import (
 )
 
 const (
-	// AppName names the Run registry value and the autostart entry.
+	// AppName names the Run registry value, the autostart entry and the
+	// Start menu shortcut.
 	AppName = "Worldkeeper"
 	// AppID is the reverse-DNS identifier: the LaunchAgent label and the
 	// .desktop file name.
 	AppID = "io.github.dkrasiev.worldkeeper"
+	// AppUserModelID identifies Worldkeeper to Windows: its notifications
+	// are sent under it (internal/notify), and the Start menu shortcut
+	// carries it, so the two are shown as one app.
+	AppUserModelID = "dkrasiev.Worldkeeper"
+	// comment describes Worldkeeper in shortcuts and desktop entries.
+	comment = "Automatic Minecraft world backups"
 )
 
 // entry is the platform's autostart record.

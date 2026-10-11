@@ -33,6 +33,11 @@ func Run(ctx context.Context, c Controller, log *slog.Logger) error {
 		backup := systray.AddMenuItem("", "")
 		auto := systray.AddMenuItemCheckbox("", "", c.AutoBackup())
 		startup := systray.AddMenuItemCheckbox("", "", c.StartWithSystem())
+		inStart, hasStartMenu := c.StartMenu()
+		startMenu := systray.AddMenuItemCheckbox("", "", inStart)
+		if !hasStartMenu {
+			startMenu.Hide()
+		}
 		systray.AddSeparator()
 		about := systray.AddMenuItem("Worldkeeper "+c.Version(), "")
 		about.Disable()
@@ -71,6 +76,9 @@ func Run(ctx context.Context, c Controller, log *slog.Logger) error {
 			setChecked(auto, c.AutoBackup())
 			// Read from the OS: Settings or Task Manager may have changed it.
 			setChecked(startup, c.StartWithSystem())
+			// And the shortcut may have been removed in the Start menu.
+			inStart, _ := c.StartMenu()
+			setChecked(startMenu, inStart)
 		}
 		retitle := func() {
 			open.SetTitle(text(locale, "open"))
@@ -81,6 +89,7 @@ func Run(ctx context.Context, c Controller, log *slog.Logger) error {
 			}
 			auto.SetTitle(text(locale, "auto"))
 			startup.SetTitle(text(locale, "startup"))
+			startMenu.SetTitle(text(locale, "startMenu"))
 			if offered != "" {
 				upd.SetTitle(text(locale, "update", offered))
 			}
@@ -124,6 +133,11 @@ func Run(ctx context.Context, c Controller, log *slog.Logger) error {
 				case <-startup.ClickedCh:
 					if err := c.SetStartWithSystem(!startup.Checked()); err != nil {
 						log.Warn("toggle start with system", "err", err)
+					}
+					refresh()
+				case <-startMenu.ClickedCh:
+					if err := c.SetStartMenu(!startMenu.Checked()); err != nil {
+						log.Warn("toggle start menu shortcut", "err", err)
 					}
 					refresh()
 				case <-upd.ClickedCh:
