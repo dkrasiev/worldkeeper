@@ -41,7 +41,7 @@ The log is written next to the config, in `worldkeeper.log`. The Activity feed (
 
 ### Updates
 
-Worldkeeper checks for a new release on start and then once a day. When one is out, the web UI shows a banner and the tray menu gets a **Download version …** item. It only tells you; installing is up to you: download the new archive, or run `winget upgrade dkrasiev.Worldkeeper` if you installed it with winget. The check is a single request to the GitHub API for the latest release, and nothing about you or your worlds is sent. Turn it off under **Settings → Check for new versions once a day**; **Check now** next to it still works. Development builds never check.
+Worldkeeper checks for a new release on start and then once a day. When one is out, the web UI shows a banner and the tray menu gets a **Download version …** item. It only tells you; to update, download the new archive and replace the program with it. The check is a single request to the GitHub API for the latest release, and nothing about you or your worlds is sent. Turn it off under **Settings → Check for new versions once a day**; **Check now** next to it still works. Development builds never check.
 
 To start Worldkeeper with your computer:
 

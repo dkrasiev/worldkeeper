@@ -1,6 +1,5 @@
 // Package update finds out whether a newer Worldkeeper release is published.
-// It only reads the GitHub release list; installing stays with the user
-// (download the archive, or winget upgrade).
+// It only reads the GitHub release list; installing stays with the user.
 package update
 
 import (
