@@ -23,14 +23,20 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 24
+      # The changelog covers the commits since the previous release. Test
+      # build tags (dev, dev-<version>, dev-<branch>) sit on develop commits,
+      # so GoReleaser's own guess of the previous tag would be the last test
+      # build: name the previous v* tag explicitly.
+      - name: Previous release
+        run: echo "GORELEASER_PREVIOUS_TAG=$(git describe --tags --abbrev=0 --match 'v*' "${GITHUB_REF_NAME}^")" >> "$GITHUB_ENV"
       - uses: goreleaser/goreleaser-action@v7
         with:
           version: "~> v2"
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Test build tags (dev, dev-<branch>) can sit on the same commit;
-          # the release is the pushed tag.
+          # Test build tags can sit on the same commit; the release is the
+          # pushed tag.
           GORELEASER_CURRENT_TAG: ${{ github.ref_name }}
           # Optional: lets GoReleaser open the winget-pkgs pull request.
           WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}

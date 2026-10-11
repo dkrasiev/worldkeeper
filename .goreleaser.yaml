@@ -70,15 +70,41 @@ checksum:
   extra_files:
     - glob: "dist/Worldkeeper_{{ .Version }}_macOS.zip"
 
+# The release notes are generated: this header, the changelog below, then the
+# footer with the downloads. Nothing is written by hand.
 release:
   extra_files:
     - glob: "dist/Worldkeeper_{{ .Version }}_macOS.zip"
+  header: |
+    Automatic backups for Minecraft: Java Edition worlds, taken when you exit a world.
 
-# Release notes are built from the squashed pull request titles, which use
-# Conventional Commits ("feat: …", "fix: …"). Changes that users do not see
-# (docs, tests, CI, chores) are left out.
+    > **Status:** a personal project, shared as-is. There are no guarantees on support or response time.
+  footer: |
+    ## Install
+
+    Download the archive for your system, unpack it, and run `worldkeeper`. The web UI opens at `http://127.0.0.1:25599` on the first start. To upgrade, quit Worldkeeper from the tray and replace the program; your settings and saves stay where they are.
+
+    | System | Download |
+    |---|---|
+    | Windows (most PCs) | `worldkeeper_{{ .Version }}_windows_amd64.zip` |
+    | Windows on ARM | `worldkeeper_{{ .Version }}_windows_arm64.zip` |
+    | macOS (Apple Silicon and Intel) | `Worldkeeper_{{ .Version }}_macOS.zip`: unzip and move `Worldkeeper.app` to Applications |
+    | macOS, bare binary | `worldkeeper_{{ .Version }}_darwin_arm64.tar.gz` / `worldkeeper_{{ .Version }}_darwin_amd64.tar.gz` |
+    | Linux | `worldkeeper_{{ .Version }}_linux_amd64.tar.gz` / `worldkeeper_{{ .Version }}_linux_arm64.tar.gz` |
+
+    **The binaries are not signed:**
+    - **Windows:** SmartScreen warns on the first run. Click *More info → Run anyway*.
+    - **macOS:** right-click `Worldkeeper.app` → *Open* on the first launch (on macOS 15 and later: *System Settings → Privacy & Security → Open Anyway*). For the bare binary, clear the quarantine flag: `xattr -d com.apple.quarantine ./worldkeeper`.
+
+    See the [README](https://github.com/dkrasiev/worldkeeper#readme) for setup, and [all changes](https://github.com/dkrasiev/worldkeeper/compare/{{ .PreviousTag }}...{{ .Tag }}) since {{ .PreviousTag }}.
+
+# The changelog is built from the squashed pull request titles, which use
+# Conventional Commits ("feat: …", "fix: …"), one line per pull request
+# ("feat: compare a save with the current world (#68)"). Changes that users
+# do not see (docs, tests, CI, chores) are left out.
 changelog:
-  use: github
+  use: git
+  format: "{{ .Message }}"
   sort: asc
   filters:
     exclude:
