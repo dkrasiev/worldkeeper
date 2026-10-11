@@ -32,7 +32,6 @@ Make what already shipped trustworthy before adding more.
 - [#19](https://github.com/dkrasiev/worldkeeper/issues/19) Scheduled restic prune and check
 - [#20](https://github.com/dkrasiev/worldkeeper/issues/20) Move saves between zip and restic storage
 - [#21](https://github.com/dkrasiev/worldkeeper/issues/21) Periodic restore test
-- [#23](https://github.com/dkrasiev/worldkeeper/issues/23) Decide on code signing and notarization
 - [#41](https://github.com/dkrasiev/worldkeeper/issues/41) Linux: desktop entry, icons and `.deb`/`.rpm` packages
 - [#80](https://github.com/dkrasiev/worldkeeper/issues/80) Recognize a world across computers and tell which copy is newer
 - [#81](https://github.com/dkrasiev/worldkeeper/issues/81) Sync chosen worlds between computers automatically
@@ -52,6 +51,7 @@ Make what already shipped trustworthy before adding more.
 
 - **Bundling restic or writing a custom deduplicating format.** Saves stay plain zip files or a standard restic repository, so they can always be restored without Worldkeeper.
 - **A hosted service, accounts, or telemetry.** Everything stays on your machine and your storage.
+- **Code signing and notarization.** A Windows code signing certificate and Apple's developer program cost money every year. The programs stay unsigned; the README shows how to start them the first time.
 
 ## Branches and releases
 
