@@ -72,7 +72,9 @@ func TestStartMenu(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Target != exe || got.Args != nil || got.Dir != filepath.Dir(exe) || got.AppID != AppUserModelID {
+	// The shell writes the target's long path; TEMP can be a short one
+	// (C:\Users\RUNNER~1\...).
+	if !sameFile(got.Target, exe) || got.Args != nil || !sameFile(got.Dir, filepath.Dir(exe)) || got.AppID != AppUserModelID {
 		t.Errorf("shortcut = %+v", got)
 	}
 
@@ -87,7 +89,7 @@ func TestStartMenu(t *testing.T) {
 	if changed, err := s.Refresh(); !changed || err != nil {
 		t.Fatalf("Refresh with missing target: %v %v", changed, err)
 	}
-	if got, _ := readShortcut(s.path); got.Target != exe {
+	if got, _ := readShortcut(s.path); !sameFile(got.Target, exe) {
 		t.Errorf("after Refresh the shortcut starts %q", got.Target)
 	}
 
@@ -100,4 +102,13 @@ func TestStartMenu(t *testing.T) {
 	if err := s.Set(false); err != nil {
 		t.Fatalf("second Set(false): %v", err)
 	}
+}
+
+func sameFile(a, b string) bool {
+	fa, err := os.Stat(a)
+	if err != nil {
+		return false
+	}
+	fb, err := os.Stat(b)
+	return err == nil && os.SameFile(fa, fb)
 }
