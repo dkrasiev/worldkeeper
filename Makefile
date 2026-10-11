@@ -18,4 +18,4 @@ dev:
 	go run ./cmd/worldkeeper -no-browser
 
 clean:
-	rm -rf bin dist web/dist/assets web/dist/index.html
+	rm -rf bin dist web/dist/assets web/dist/index.html cmd/worldkeeper/*.syso cmd/worldkeeper/winres/icon.ico

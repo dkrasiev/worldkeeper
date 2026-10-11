@@ -25,6 +25,11 @@ type Controller interface {
 	// StartWithSystem reports whether Worldkeeper starts at login.
 	StartWithSystem() bool
 	SetStartWithSystem(on bool) error
+	// StartMenu reports whether Worldkeeper has a Start menu shortcut;
+	// available is false where there is no Start menu (anything but
+	// Windows), and the menu then has no item for it.
+	StartMenu() (on, available bool)
+	SetStartMenu(on bool) error
 	Status() Status
 	// Update is the version of a newer release, or "" when up to date.
 	Update() string
@@ -66,6 +71,7 @@ var messages = map[string]map[string]string{
 		"resultFailed":   "Done: %d saved, %d skipped, %d failed",
 		"auto":           "Back up when a world is closed",
 		"startup":        "Start at login",
+		"startMenu":      "Show in Start menu",
 		"update":         "Download version %s",
 		"quit":           "Quit Worldkeeper",
 	},
@@ -81,6 +87,7 @@ var messages = map[string]map[string]string{
 		"resultFailed":   "Готово: сохранено %d, пропущено %d, ошибок %d",
 		"auto":           "Бэкап при выходе из мира",
 		"startup":        "Запускать при входе в систему",
+		"startMenu":      "Показывать в меню «Пуск»",
 		"update":         "Скачать версию %s",
 		"quit":           "Выйти из Worldkeeper",
 	},

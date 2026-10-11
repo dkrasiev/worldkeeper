@@ -132,7 +132,7 @@ func desktopFile(name string, cmd []string) string {
 	return "[Desktop Entry]\n" +
 		"Type=Application\n" +
 		"Name=" + name + "\n" +
-		"Comment=Automatic Minecraft world backups\n" +
+		"Comment=" + comment + "\n" +
 		"Exec=" + desktopExec(cmd) + "\n" +
 		"Terminal=false\n" +
 		"X-GNOME-Autostart-enabled=true\n"

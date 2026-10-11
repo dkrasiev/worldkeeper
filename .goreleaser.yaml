@@ -3,6 +3,21 @@ version: 2
 before:
   hooks:
     - make web
+    # Windows resources for worldkeeper.exe: the app icon (the grass block,
+    # drawn by tools/winicon) and the version info that Explorer's
+    # Properties and Task Manager show (product name, description and
+    # copyright from cmd/worldkeeper/winres/winres.json, version from the
+    # tag). go-winres writes them as rsrc_windows_<arch>.syso next to
+    # main.go, which go build links into windows/<arch> builds only; other
+    # targets ignore them by their file name. All of it is generated here
+    # and not committed (see .gitignore). "env -u" lets go run build the
+    # tools for this machine rather than for the GOOS/GOARCH a single-target
+    # build sets (dev-build.yml).
+    - env -u GOOS -u GOARCH go run ./tools/winicon -out cmd/worldkeeper/winres/icon.ico
+    - >-
+      env -u GOOS -u GOARCH go run github.com/tc-hib/go-winres@v0.3.3 make
+      --in cmd/worldkeeper/winres/winres.json --out cmd/worldkeeper/rsrc --arch amd64,arm64
+      --product-version {{ .Version }} --file-version {{ .Version }}
 
 # Runs on a macOS runner (see .github/workflows/release.yml): the macOS menu
 # bar icon needs cgo, which only a Mac can build. Windows and Linux builds

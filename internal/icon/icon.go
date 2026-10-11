@@ -1,6 +1,7 @@
 // Package icon draws Worldkeeper's icon, a pixel-art grass block, in code,
 // so no image assets need to be shipped. The tray icon (internal/tray) and
-// the macOS app icon (tools/macapp) are both made from it.
+// the macOS and Windows app icons (tools/macapp, tools/winicon) are all made
+// from it.
 package icon
 
 import (

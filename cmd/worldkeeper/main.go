@@ -118,11 +118,12 @@ func run() error {
 				log.Info("start with system now points to this copy", "exe", as.Command[0])
 			}
 		}
+		sm := startMenu(a.Config, *cfgPath, defaultCfg, log)
 		useTray := !*noTray && tray.Available && trayHostAvailable()
 		// With a tray icon the UI is one click away; only open it unasked on
 		// the very first start, so login autostart does not pop a browser.
 		openUI := !*noBrowser && (!useTray || firstRun)
-		return serve(a, log, openUI, useTray, !*noBrowser)
+		return serve(a, sm, log, openUI, useTray, !*noBrowser)
 	case "list":
 		return list(a)
 	case "backup":
@@ -163,7 +164,7 @@ func list(a *app.App) error {
 
 // serve runs until Quit or a signal. When another worldkeeper already
 // serves, it opens that one's UI if showRunning, and exits.
-func serve(a *app.App, log *slog.Logger, openUI, useTray, showRunning bool) error {
+func serve(a *app.App, sm *shell.StartMenu, log *slog.Logger, openUI, useTray, showRunning bool) error {
 	cfg := a.Config.Get()
 	host, _, err := net.SplitHostPort(cfg.Listen)
 	if err != nil {
@@ -220,7 +221,7 @@ func serve(a *app.App, log *slog.Logger, openUI, useTray, showRunning bool) erro
 	// The tray must own the main goroutine (macOS requires it); it returns
 	// when the user picks Quit or ctx is cancelled.
 	if useTray {
-		ctrl := &trayController{app: a, url: url, log: log}
+		ctrl := &trayController{app: a, startMenu: sm, url: url, log: log}
 		if err := tray.Run(ctx, ctrl, log); err != nil {
 			log.Warn("system tray unavailable, running without it", "err", err)
 			<-ctx.Done()
@@ -242,14 +243,13 @@ func serve(a *app.App, log *slog.Logger, openUI, useTray, showRunning bool) erro
 	}
 }
 
-// autostart starts this executable at login, quietly in the tray, with the
-// same config file.
-func autostart(cfgPath, defaultCfg string) (*shell.Autostart, error) {
+// launchCommand starts this executable with the same config file.
+func launchCommand(cfgPath, defaultCfg string) ([]string, error) {
 	exe, err := os.Executable()
 	if err != nil {
 		return nil, err
 	}
-	cmd := []string{exe, "-no-browser"}
+	cmd := []string{exe}
 	if cfgPath != defaultCfg {
 		abs, err := filepath.Abs(cfgPath)
 		if err != nil {
@@ -257,7 +257,17 @@ func autostart(cfgPath, defaultCfg string) (*shell.Autostart, error) {
 		}
 		cmd = append(cmd, "-config", abs)
 	}
-	return shell.NewAutostart(cmd), nil
+	return cmd, nil
+}
+
+// autostart starts this executable at login, quietly in the tray, with the
+// same config file.
+func autostart(cfgPath, defaultCfg string) (*shell.Autostart, error) {
+	cmd, err := launchCommand(cfgPath, defaultCfg)
+	if err != nil {
+		return nil, err
+	}
+	return shell.NewAutostart(append([]string{cmd[0], "-no-browser"}, cmd[1:]...)), nil
 }
 
 // trayHostAvailable reports whether a tray can be shown: on Linux the icon
@@ -279,9 +289,10 @@ func openLog(path string) (*os.File, error) {
 }
 
 type trayController struct {
-	app *app.App
-	url string
-	log *slog.Logger
+	app       *app.App
+	startMenu *shell.StartMenu // nil when this executable cannot be found
+	url       string
+	log       *slog.Logger
 }
 
 func (c *trayController) OpenUI() {
@@ -321,6 +332,20 @@ func (c *trayController) SetStartWithSystem(on bool) error {
 		return errors.New("start with system is unavailable")
 	}
 	return c.app.Autostart.Set(on)
+}
+
+func (c *trayController) StartMenu() (on, available bool) {
+	if c.startMenu == nil || !c.startMenu.Available() {
+		return false, false
+	}
+	return c.startMenu.Exists(), true
+}
+
+func (c *trayController) SetStartMenu(on bool) error {
+	if c.startMenu == nil {
+		return errors.New("start menu shortcut is unavailable")
+	}
+	return c.startMenu.Set(on)
 }
 
 func (c *trayController) Status() tray.Status {

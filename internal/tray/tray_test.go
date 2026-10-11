@@ -2,7 +2,6 @@ package tray
 
 import (
 	"bytes"
-	"encoding/binary"
 	"image/png"
 	"testing"
 	"time"
@@ -53,23 +52,5 @@ func TestIcons(t *testing.T) {
 	}
 	if r, g, b, _ := img.At(48, 48).RGBA(); r>>8 != 0xe5 || g>>8 != 0x39 || b>>8 != 0x35 {
 		t.Errorf("warning dot missing at (48,48): %x %x %x", r>>8, g>>8, b>>8)
-	}
-
-	pngData := encodePNG(icon.Scale(base, 2))
-	ico := encodeICO(pngData, 32)
-	var hdr struct {
-		Reserved, Type, Count uint16
-		W, H, Colors, Res     uint8
-		Planes, BPP           uint16
-		Size, Offset          uint32
-	}
-	if err := binary.Read(bytes.NewReader(ico), binary.LittleEndian, &hdr); err != nil {
-		t.Fatal(err)
-	}
-	if hdr.Type != 1 || hdr.Count != 1 || hdr.W != 32 || int(hdr.Size) != len(pngData) || hdr.Offset != 22 {
-		t.Errorf("ico header = %+v", hdr)
-	}
-	if !bytes.Equal(ico[22:], pngData) {
-		t.Error("ico payload is not the png")
 	}
 }

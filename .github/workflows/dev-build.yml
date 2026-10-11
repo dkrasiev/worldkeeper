@@ -85,8 +85,9 @@ jobs:
           # version on the last release tag.
           echo "GORELEASER_CURRENT_TAG=$(git describe --tags --abbrev=0 --match 'v*' "$COMMIT")" >> "$GITHUB_ENV"
 
-      # Same build settings as releases (GUI subsystem, version stamp), only
-      # the windows/amd64 target.
+      # Same build settings as releases (GUI subsystem, version stamp, and
+      # the icon and version info from the before hooks), only the
+      # windows/amd64 target.
       - uses: goreleaser/goreleaser-action@v6
         if: steps.existing.outputs.skip != 'true'
         with:
