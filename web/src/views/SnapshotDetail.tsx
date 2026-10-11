@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { api, ApiError } from "../api";
 import { AdvancementsPanel } from "../components/Advancements";
+import { SaveComparison } from "../components/Compare";
 import { DeleteDialog, LoadDialog, useSnapTitle } from "../components/Snapshots";
 import { KindBadge, WorldIcon } from "../components/ui";
 import { WorldInfoPanel } from "../components/WorldInfoPanel";
@@ -10,7 +11,8 @@ import { useI18n } from "../i18n";
 import { jobError, JobProgress, useWorldJob } from "../jobs";
 
 // SnapshotDetail shows what a save contains, read from the backup itself,
-// so it works even when the world is gone from this computer.
+// so it works even when the world is gone from this computer. While the
+// world is here, it also shows what changed in it since the save.
 export function SnapshotDetail({ id, snapId, onBack }: { id: string; snapId: string; onBack: () => void }) {
   const { t, errorText } = useI18n();
   const f = useFormat();
@@ -99,6 +101,7 @@ export function SnapshotDetail({ id, snapId, onBack }: { id: string; snapId: str
         <p className="muted">{t("snapshot.reading")}</p>
       ) : (
         <>
+          {world.data && !missing && <SaveComparison id={id} snapId={snapId} save={info.data} now={world.data} />}
           <WorldInfoPanel w={info.data} title={t("snapshot.contents")} />
           <AdvancementsPanel
             load={() => api.snapshotAdvancements(id, snapId)}

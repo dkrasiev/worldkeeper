@@ -86,6 +86,19 @@ export const en = {
   "snapshot.contents": "In this save",
   "snapshot.created": "Created",
   "snapshot.notFound": "This save no longer exists.",
+  "compare.title": "Changes since this save",
+  "compare.titleNewer": "Compared with the current world",
+  "compare.newerHint":
+    "This save was played later than the world on this computer, for example because an earlier save was loaded since. Each line shows this save → the world now.",
+  "compare.inUse":
+    "The world is open in the game. The game writes its progress to disk every few minutes, so the latest changes may not show yet.",
+  "compare.same":
+    "The world is the same as in this save: play time, advancements, explored regions, version and game rules have not changed.",
+  "compare.version": "Version",
+  "compare.regions": "Regions: {dimension}",
+  "compare.gained": "Earned since the save ({count})",
+  "compare.lost": "In the save but not in the world now ({count})",
+  "compare.gameRules": "Changed game rules",
 
   "save.title": "Save world",
   "save.inUseWarning":

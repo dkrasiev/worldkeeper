@@ -11,7 +11,7 @@ build: web
 test:
 	go vet ./...
 	go test ./...
-	cd web && pnpm typecheck
+	cd web && pnpm typecheck && pnpm test
 
 # Go server without opening a browser; run `cd web && pnpm dev` alongside for hot reload.
 dev:

@@ -13,6 +13,7 @@ Automatic backups for Minecraft: Java Edition worlds. Worldkeeper saves a world 
 - **Load any save.** You can replace the current world or load the save as a new world next to it, named "… (restored <date>)" so the game lists both. Before replacing, Worldkeeper makes a safety save of the current state, so every restore can be undone.
 - **Rename and delete worlds.** Renaming changes the name shown in the game; the folder keeps its name, so the world stays linked to its saves. Before deleting, Worldkeeper saves the world unless its latest state is already saved, so a deleted world can be loaded back.
 - **World info read from the files:** version, mode, difficulty, seed, in-game day, weather, spawn, player position, health and level, play time, deaths, mobs killed, distance travelled, advancements, size on disk, explored regions per dimension, data packs, game rules, and mod loaders.
+- **Compare a save with the world now.** A save's page shows what it contains and, while the world is on this computer, what changed in it since: play time, which advancements were earned, regions explored per dimension, the game version, and game rules with a different value.
 - **Advancement tree.** The world page can show the in-game advancement screen with the player's progress, drawn by [mcwidgets](https://github.com/KabanFriends/mcwidgets). It is off until you click **Show advancement tree**: the widget loads from `mcwidgets.kaban.sh` in a sandboxed iframe, so it needs internet access, and the world's advancement progress is sent to that site. Only vanilla advancements are shown. Worldkeeper does not ship Minecraft textures itself.
 - **Plain zip files or a restic repository.** By default every save is an ordinary `.zip` file, so you can restore a world with any archive tool even without Worldkeeper. Alternatively, saves can go to a [restic](https://restic.net) repository: encrypted and deduplicated, so dozens of saves of a big world take little extra space.
 
@@ -91,7 +92,7 @@ Each world gets its own folder, named after the launcher and the world folder. I
 You need Go 1.26+, Node 24+, and pnpm. On macOS the menu bar icon needs cgo (Xcode command line tools). Without cgo, macOS builds run without the icon.
 
 ```bash
-make test     # go vet, go test, TypeScript typecheck
+make test     # go vet, go test, TypeScript typecheck, UI tests
 make build    # builds web UI and bin/worldkeeper
 ```
 
