@@ -28,7 +28,7 @@ type UpdateStatus struct {
 	// DevBuilds is set when test builds are made for this platform.
 	DevBuilds bool            `json:"devBuilds"`
 	Latest    *update.Release `json:"latest,omitempty"`
-	// Available is set when Latest is newer than the running build.
+	// Available is set when Latest should be offered to the running build.
 	Available bool      `json:"available"`
 	CheckedAt time.Time `json:"checkedAt,omitzero"` // last successful check
 	Error     string    `json:"error,omitempty"`    // last check failed
@@ -37,24 +37,33 @@ type UpdateStatus struct {
 type updateState struct {
 	mu        sync.Mutex
 	latest    *update.Release
-	found     string // channel latest was found on
-	tried     string // channel of the last check
+	found     string // source (see updateSource) latest was found on
+	tried     string // source of the last check
 	checkedAt time.Time
 	triedAt   time.Time
 	err       string
 }
 
-// updateChannel is the configured channel; stable where no test builds are made.
-func (a *App) updateChannel() string {
-	if a.Config.Get().UpdateChannel == config.ChannelDev && update.DevBuilds {
-		return config.ChannelDev
+// updateSource names what the update check looks at: "stable", or "dev:"
+// and a branch. Where no test builds are made it is always "stable".
+func (a *App) updateSource() (channel, branch string) {
+	c := a.Config.Get()
+	if c.UpdateChannel == config.ChannelDev && update.DevBuilds {
+		return config.ChannelDev, c.UpdateBranch
 	}
-	return config.ChannelStable
+	return config.ChannelStable, ""
+}
+
+func sourceKey(channel, branch string) string {
+	if channel == config.ChannelDev {
+		return channel + ":" + branch
+	}
+	return channel
 }
 
 // UpdateStatus returns the result of the last check without checking again.
 func (a *App) UpdateStatus() UpdateStatus {
-	channel := a.updateChannel()
+	key := sourceKey(a.updateSource())
 	a.updates.mu.Lock()
 	defer a.updates.mu.Unlock()
 	st := UpdateStatus{
@@ -64,11 +73,11 @@ func (a *App) UpdateStatus() UpdateStatus {
 		CheckedAt: a.updates.checkedAt,
 		Error:     a.updates.err,
 	}
-	if a.updates.found == channel { // a result from the other channel is stale
+	if a.updates.found == key { // a result for other settings is stale
 		st.Latest = a.updates.latest
 	}
 	if st.Latest != nil {
-		st.Available, _ = update.Newer(st.Latest.Version, a.Version)
+		st.Available, _ = update.Offer(st.Latest.Version, a.Version)
 	}
 	return st
 }
@@ -78,17 +87,18 @@ func (a *App) CheckUpdate(ctx context.Context) UpdateStatus {
 	if !update.Versioned(a.Version) {
 		return a.UpdateStatus()
 	}
-	channel := a.updateChannel()
-	rel, err := a.latestOn(ctx, channel)
+	channel, branch := a.updateSource()
+	key := sourceKey(channel, branch)
+	rel, err := a.latestOn(ctx, channel, branch)
 
 	a.updates.mu.Lock()
-	a.updates.triedAt, a.updates.tried = time.Now(), channel
+	a.updates.triedAt, a.updates.tried = time.Now(), key
 	if err != nil {
 		a.updates.err = err.Error()
 	} else {
-		known := a.updates.latest != nil && a.updates.found == channel && a.updates.latest.Version == rel.Version
-		a.updates.latest, a.updates.found, a.updates.checkedAt, a.updates.err = &rel, channel, a.updates.triedAt, ""
-		if newer, _ := update.Newer(rel.Version, a.Version); newer && !known {
+		known := a.updates.latest != nil && a.updates.found == key && a.updates.latest.Version == rel.Version
+		a.updates.latest, a.updates.found, a.updates.checkedAt, a.updates.err = &rel, key, a.updates.triedAt, ""
+		if offer, _ := update.Offer(rel.Version, a.Version); offer && !known {
 			a.Log.Info("a new version is available", "version", rel.Version, "url", rel.URL)
 		}
 	}
@@ -101,13 +111,18 @@ func (a *App) CheckUpdate(ctx context.Context) UpdateStatus {
 }
 
 // latestOn returns the newest version on channel: the latest release, or on
-// the dev channel whichever is newer of it and the newest test build.
-func (a *App) latestOn(ctx context.Context, channel string) (update.Release, error) {
+// the dev channel whichever is newer of it and the newest test build of
+// branch. A branch whose pull request is merged or closed has no builds any
+// more; its changes are in develop then, so develop's builds are offered.
+func (a *App) latestOn(ctx context.Context, channel, branch string) (update.Release, error) {
 	rel, err := a.UpdateChecker.Latest(ctx, a.Version)
 	if channel != config.ChannelDev {
 		return rel, err
 	}
-	dev, devErr := a.UpdateChecker.Dev(ctx, a.Version)
+	dev, devErr := a.UpdateChecker.Dev(ctx, a.Version, branch)
+	if errors.Is(devErr, update.ErrNoDevBuild) && branch != update.DevBranch {
+		dev, devErr = a.UpdateChecker.Dev(ctx, a.Version, update.DevBranch)
+	}
 	switch {
 	case errors.Is(devErr, update.ErrNoDevBuild):
 		return rel, err
@@ -119,10 +134,15 @@ func (a *App) latestOn(ctx context.Context, channel string) (update.Release, err
 	case err != nil:
 		return dev, nil
 	}
-	if newer, _ := update.Newer(dev.Version, rel.Version); newer {
-		return dev, nil
+	if newer, _ := update.Newer(rel.Version, dev.Version); newer {
+		return rel, nil
 	}
-	return rel, nil
+	return dev, nil
+}
+
+// TestBuilds lists the published test builds to choose a branch from.
+func (a *App) TestBuilds(ctx context.Context) ([]update.Release, error) {
+	return a.UpdateChecker.Builds(ctx, a.Version)
 }
 
 // WatchUpdates checks for a new release on start and then once a day,
@@ -147,10 +167,10 @@ func (a *App) updateDue(now time.Time) bool {
 	if !a.Config.Get().CheckUpdates {
 		return false
 	}
-	channel := a.updateChannel()
+	key := sourceKey(a.updateSource())
 	a.updates.mu.Lock()
 	defer a.updates.mu.Unlock()
-	if a.updates.triedAt.IsZero() || a.updates.tried != channel {
+	if a.updates.triedAt.IsZero() || a.updates.tried != key {
 		return true
 	}
 	wait := updateEvery

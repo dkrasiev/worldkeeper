@@ -126,6 +126,17 @@ func TestUpdateSettings(t *testing.T) {
 	if rec := do(h, "PUT", "/api/config", host, token, bad); rec.Code != 400 || !strings.Contains(rec.Body.String(), `"key":"update_channel_unknown"`) {
 		t.Errorf("unknown channel: %d %s", rec.Code, rec.Body)
 	}
+	feat := strings.Replace(body, `}`, `,"updateChannel":"dev","updateBranch":"feat-autostart"}`, 1)
+	if rec := do(h, "PUT", "/api/config", host, token, feat); rec.Code != 200 || !strings.Contains(rec.Body.String(), `"updateBranch":"feat-autostart"`) {
+		t.Errorf("branch: %d %s", rec.Code, rec.Body)
+	}
+	badBranch := strings.Replace(body, `}`, `,"updateBranch":"feat/Autostart"}`, 1)
+	if rec := do(h, "PUT", "/api/config", host, token, badBranch); rec.Code != 400 || !strings.Contains(rec.Body.String(), `"key":"update_branch_invalid"`) {
+		t.Errorf("invalid branch: %d %s", rec.Code, rec.Body)
+	}
+	if rec := do(h, "PUT", "/api/config", host, token, body); !strings.Contains(rec.Body.String(), `"updateBranch":"develop"`) {
+		t.Errorf("no branch means develop: %s", rec.Body)
+	}
 	// "test-version" is not a release number, so nothing is fetched.
 	rec := do(h, "POST", "/api/update/check", host, token, "")
 	if rec.Code != 200 || !strings.Contains(rec.Body.String(), `"versioned":false`) || !strings.Contains(rec.Body.String(), `"available":false`) {

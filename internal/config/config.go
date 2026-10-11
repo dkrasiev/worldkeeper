@@ -44,6 +44,9 @@ type Config struct {
 	CheckUpdates bool `json:"checkUpdates"`
 	// UpdateChannel is ChannelStable or ChannelDev.
 	UpdateChannel string `json:"updateChannel"`
+	// UpdateBranch is the branch whose test builds the dev channel offers:
+	// "develop", or the branch of an open pull request.
+	UpdateBranch string `json:"updateBranch"`
 	// Language is the one picked in the web UI ("en", "ru"); the tray menu
 	// and notifications use it. Empty follows the OS language.
 	Language string `json:"language"`
@@ -55,7 +58,7 @@ type Config struct {
 // Update channels decide which versions the update check offers.
 const (
 	ChannelStable = "stable" // releases only
-	ChannelDev    = "dev"    // also test builds of the develop branch
+	ChannelDev    = "dev"    // also test builds of UpdateBranch
 )
 
 type Restic struct {
@@ -97,6 +100,7 @@ func Default() Config {
 		Listen:         "127.0.0.1:25599",
 		CheckUpdates:   true,
 		UpdateChannel:  ChannelStable,
+		UpdateBranch:   "develop",
 		Notifications:  true,
 	}
 }
@@ -135,6 +139,9 @@ func Open(path string) (*Store, error) {
 	}
 	if s.cfg.UpdateChannel != ChannelDev {
 		s.cfg.UpdateChannel = ChannelStable // "" or a hand-edited typo
+	}
+	if s.cfg.UpdateBranch == "" {
+		s.cfg.UpdateBranch = "develop"
 	}
 	if s.cfg.ExtraSavesDirs == nil {
 		s.cfg.ExtraSavesDirs = []string{} // "null" in a hand-edited file

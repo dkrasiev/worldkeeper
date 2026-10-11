@@ -115,6 +115,8 @@ export interface Settings {
   checkUpdates: boolean;
   /** "dev" also offers test builds of the develop branch. */
   updateChannel: "stable" | "dev";
+  /** Branch whose test builds the "dev" channel offers: "develop" or a pull request branch. */
+  updateBranch: string;
   /** Desktop notification when a world's backups fail and recover. */
   notifications: boolean;
 }
@@ -130,7 +132,8 @@ export interface UpdateStatus {
     version: string;
     url: string; // release page
     download?: string; // the archive itself; set for test builds
-    dev?: boolean; // a test build of develop
+    dev?: boolean; // a test build
+    branch?: string; // the branch a test build was made from
   };
   available: boolean;
   checkedAt?: string; // last successful check
@@ -243,6 +246,8 @@ export const api = {
   update: () => request<UpdateStatus>("GET", "/api/update"),
   /** Asks GitHub for the latest release now. */
   checkUpdate: () => request<UpdateStatus>("POST", "/api/update/check"),
+  /** Published test builds: develop first, then open pull requests. */
+  testBuilds: () => request<NonNullable<UpdateStatus["latest"]>[]>("GET", "/api/update/builds"),
   world: (id: string) => request<WorldInfo>("GET", w(id)),
   advancements: (id: string) => request<Record<string, unknown>>("GET", `${w(id)}/advancements`),
   snapshotInfo: (id: string, snap: string) =>

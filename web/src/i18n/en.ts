@@ -254,6 +254,13 @@ export const en = {
   "settings.channelDevText":
     "The newest changes from the develop branch, as soon as they are merged. They can have bugs, backups included.",
   "settings.channelDevUnavailable": "Test builds are made for Windows x64 only.",
+  "settings.branch": "Branch",
+  "settings.branchDevelop": "develop: everything merged",
+  "settings.builds": "Test builds to download",
+  "settings.buildsHint": "The last few builds of develop, newest first, then the latest build of each open pull request.",
+  "settings.buildRunning": "running",
+  "settings.branchHint":
+    "A pull request's branch has test builds while the pull request is open. Once it is merged or closed, develop's builds are offered.",
   "settings.saved": "Settings saved.",
   "settings.save": "Save settings",
   "settings.saving": "Saving…",
@@ -288,4 +295,6 @@ export const en = {
   "err.invalid_json": "Invalid request: {error}",
   "err.repo_not_missing": "The repository cannot be initialized (state: {state}).",
   "err.update_channel_unknown": "Unknown update channel.",
+  "err.update_branch_invalid": "Invalid branch name: {branch}",
+  "err.builds_unavailable": "Cannot list test builds: {error}",
 } satisfies Record<string, string | Plural>;

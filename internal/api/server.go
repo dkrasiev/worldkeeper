@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"time"
@@ -18,9 +19,13 @@ import (
 	"github.com/dkrasiev/worldkeeper/internal/app"
 	"github.com/dkrasiev/worldkeeper/internal/config"
 	"github.com/dkrasiev/worldkeeper/internal/snapshot"
+	"github.com/dkrasiev/worldkeeper/internal/update"
 )
 
 const tokenHeader = "X-Worldkeeper-Token"
+
+// branchName is a test build branch as dev-build.yml writes it.
+var branchName = regexp.MustCompile(`^[0-9a-z][0-9a-z-]*$`)
 
 type Server struct {
 	app *app.App
@@ -38,6 +43,7 @@ func New(a *app.App, ui fs.FS) http.Handler {
 	mux.HandleFunc("GET /api/about", s.about)
 	mux.HandleFunc("GET /api/update", s.updateStatus)
 	mux.HandleFunc("POST /api/update/check", s.checkUpdate)
+	mux.HandleFunc("GET /api/update/builds", s.testBuilds)
 	mux.HandleFunc("GET /api/config", s.getConfig)
 	mux.HandleFunc("PUT /api/config", s.putConfig)
 	mux.HandleFunc("GET /api/language", s.getLanguage)
@@ -114,6 +120,17 @@ func (s *Server) about(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) updateStatus(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, s.app.UpdateStatus())
+}
+
+// testBuilds lists the published test builds for the branch choice in Settings.
+func (s *Server) testBuilds(w http.ResponseWriter, r *http.Request) {
+	builds, err := s.app.TestBuilds(r.Context())
+	if err != nil {
+		writeAPIError(w, &apiError{status: http.StatusBadGateway, code: "upstream", key: "builds_unavailable",
+			params: map[string]string{"error": err.Error()}, msg: "cannot list test builds: " + err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, builds)
 }
 
 // checkUpdate asks GitHub now, even when automatic checks are off: the user
@@ -248,6 +265,7 @@ type settings struct {
 	PollSeconds    int           `json:"pollSeconds"`
 	CheckUpdates   bool          `json:"checkUpdates"`
 	UpdateChannel  string        `json:"updateChannel"`
+	UpdateBranch   string        `json:"updateBranch"`
 	// Notifications is nil from clients from before the setting; they keep it.
 	Notifications *bool `json:"notifications,omitempty"`
 
@@ -272,6 +290,7 @@ func (s *Server) toSettings(c config.Config) settings {
 		PollSeconds:       int(c.PollInterval.Seconds()),
 		CheckUpdates:      c.CheckUpdates,
 		UpdateChannel:     c.UpdateChannel,
+		UpdateBranch:      c.UpdateBranch,
 		Notifications:     &c.Notifications,
 		ResticPasswordSet: pwSet,
 	}
@@ -344,6 +363,12 @@ func (s *Server) putConfig(w http.ResponseWriter, r *http.Request) {
 		default:
 			return badRequest("update_channel_unknown", "unknown update channel")
 		}
+		switch b := in.UpdateBranch; {
+		case b == "":
+			in.UpdateBranch = update.DevBranch
+		case !branchName.MatchString(b):
+			return badRequest("update_branch_invalid", "invalid branch name: "+b, "branch", b)
+		}
 		dirs := []string{}
 		for _, d := range in.ExtraSavesDirs {
 			d = strings.TrimSpace(d)
@@ -369,6 +394,7 @@ func (s *Server) putConfig(w http.ResponseWriter, r *http.Request) {
 		c.PollInterval = config.Duration{Duration: time.Duration(in.PollSeconds) * time.Second}
 		c.CheckUpdates = in.CheckUpdates
 		c.UpdateChannel = in.UpdateChannel
+		c.UpdateBranch = in.UpdateBranch
 		if in.Notifications != nil {
 			c.Notifications = *in.Notifications
 		}

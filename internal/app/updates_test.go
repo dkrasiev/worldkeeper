@@ -4,6 +4,8 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -71,53 +73,80 @@ func TestUpdateChannel(t *testing.T) {
 	defer func(was bool) { update.DevBuilds = was }(update.DevBuilds)
 	update.DevBuilds = true
 
+	var mu sync.Mutex
 	stable := "v0.2.0"
-	var devTitle atomic.Value
-	devTitle.Store("Dev build 0.3.0-develop.202610111530.abc1234")
+	builds := map[string]string{ // tag -> version
+		"dev":                "0.3.0-develop.202610111530.abc1234",
+		"dev-feat-autostart": "0.3.0-feat-autostart.202610111200.def5678",
+	}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/dev" {
-			w.Write([]byte(`{"name":"` + devTitle.Load().(string) + `","html_url":"https://example.test/dev",
-				"assets":[{"name":"worldkeeper_windows_amd64.zip","browser_download_url":"https://example.test/dev.zip"}]}`))
+		mu.Lock()
+		defer mu.Unlock()
+		if tag, ok := strings.CutPrefix(r.URL.Path, "/tags/"); ok {
+			v, ok := builds[tag]
+			if !ok {
+				http.NotFound(w, r)
+				return
+			}
+			w.Write([]byte(`{"tag_name":"` + tag + `","name":"Dev build ` + v + `","prerelease":true,"html_url":"https://example.test/` + tag + `",
+				"assets":[{"name":"worldkeeper_windows_amd64.zip","browser_download_url":"https://example.test/` + tag + `.zip"}]}`))
 			return
 		}
 		w.Write([]byte(`{"tag_name":"` + stable + `","html_url":"https://example.test/` + stable + `"}`))
 	}))
 	defer srv.Close()
-	f.app.UpdateChecker = update.Checker{URL: srv.URL + "/latest", DevURL: srv.URL + "/dev"}
+	f.app.UpdateChecker = update.Checker{URL: srv.URL}
 	f.app.Version = "0.2.0"
-	setChannel := func(ch string) {
-		f.app.Config.Update(func(c *config.Config) error { c.UpdateChannel = ch; return nil })
+	set := func(channel, branch string) {
+		f.app.Config.Update(func(c *config.Config) error { c.UpdateChannel, c.UpdateBranch = channel, branch; return nil })
 	}
 
-	// Stable: the test build is not offered.
+	// Stable: test builds are not offered.
 	if st := f.app.CheckUpdate(context.Background()); st.Available || st.Latest.Dev {
 		t.Fatalf("stable channel: %+v", st.Latest)
 	}
 
 	// Switching channels makes a check due at once and hides the old result.
-	setChannel(config.ChannelDev)
+	set(config.ChannelDev, "develop")
 	if !f.app.updateDue(time.Now()) || f.app.UpdateStatus().Latest != nil {
 		t.Fatal("channel switch: check not due, or stale result shown")
 	}
 	st := f.app.CheckUpdate(context.Background())
-	if !st.Available || !st.Latest.Dev || st.Latest.Download != "https://example.test/dev.zip" {
+	if !st.Available || st.Latest.Branch != "develop" || st.Latest.Download != "https://example.test/dev.zip" {
 		t.Fatalf("dev channel: %+v", st.Latest)
 	}
 
-	// A test build of the same version is offered when its commit is newer.
-	f.app.Version = "0.3.0-develop.202610100000.0000000"
-	if st := f.app.UpdateStatus(); !st.Available {
-		t.Error("newer test build not offered")
+	// Picking a pull request's branch offers its build, though its commit is older.
+	f.app.Version = st.Latest.Version
+	set(config.ChannelDev, "feat-autostart")
+	if !f.app.updateDue(time.Now()) {
+		t.Fatal("branch switch: check not due")
 	}
+	if st := f.app.CheckUpdate(context.Background()); !st.Available || st.Latest.Branch != "feat-autostart" {
+		t.Fatalf("branch build: %+v", st.Latest)
+	}
+
+	// Once its pull request is merged the branch has no builds; develop's are offered.
+	f.app.Version = "0.3.0-feat-autostart.202610111200.def5678"
+	mu.Lock()
+	delete(builds, "dev-feat-autostart")
+	builds["dev"] = "0.3.0-develop.202610111700.0123456"
+	mu.Unlock()
+	if st := f.app.CheckUpdate(context.Background()); !st.Available || st.Latest.Branch != "develop" {
+		t.Fatalf("after merge: %+v", st.Latest)
+	}
+
 	// A release newer than the test build wins.
+	mu.Lock()
 	stable = "v0.3.0"
+	mu.Unlock()
 	if st := f.app.CheckUpdate(context.Background()); !st.Available || st.Latest.Dev || st.Latest.Version != "0.3.0" {
 		t.Errorf("newer release: %+v", st.Latest)
 	}
 
 	// Where no test builds are made, the dev channel acts as stable.
 	update.DevBuilds = false
-	if f.app.updateChannel() != config.ChannelStable {
+	if ch, _ := f.app.updateSource(); ch != config.ChannelStable {
 		t.Error("dev channel without test builds for this platform")
 	}
 }

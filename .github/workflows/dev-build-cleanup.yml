@@ -1,0 +1,27 @@
+name: Dev build cleanup
+
+# Removes a pull request's "dev-<branch>" test build pre-release (see
+# dev-build.yml) once the pull request is merged or closed. Worldkeeper then
+# offers develop's builds to anyone who followed that branch.
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: write # to delete the release and its tag
+
+jobs:
+  delete:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete the branch's pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          BRANCH: ${{ github.head_ref }}
+        run: |
+          # Same branch label as dev-build.yml.
+          branch=$(printf '%s' "$BRANCH" | tr '[:upper:]' '[:lower:]' | sed -e 's/[^0-9a-z-]/-/g' -e 's/^-*//' -e 's/-*$//')
+          [ -n "$branch" ] && [ "$branch" != develop ] || exit 0
+          gh release delete "dev-$branch" --yes --cleanup-tag || echo "No pre-release for $branch."

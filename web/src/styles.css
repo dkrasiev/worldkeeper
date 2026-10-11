@@ -781,3 +781,28 @@ a.snapshot-link:hover strong {
   cursor: not-allowed;
   opacity: 0.55;
 }
+label select {
+  font: inherit;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+}
+.build-list {
+  list-style: none;
+  margin: 0 0 6px;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+.build-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  min-width: 0;
+}
+.build-list .mono {
+  overflow-wrap: anywhere;
+}
