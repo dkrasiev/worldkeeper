@@ -45,6 +45,9 @@ type App struct {
 	// Notifier, if set, announces failed and recovered backups.
 	Notifier Notifier
 
+	// Autostart starts Worldkeeper at login; nil where it cannot.
+	Autostart Autostart
+
 	zip *snapshot.Store
 
 	resticMu    sync.Mutex
@@ -60,6 +63,13 @@ type App struct {
 	jobs       jobs
 	updates    updateState
 	locale     localeState
+}
+
+// Autostart turns starting with the system on and off (see shell.Autostart).
+// The OS keeps the state, not the config: the user can change it elsewhere.
+type Autostart interface {
+	Enabled() (bool, error)
+	Set(on bool) error
 }
 
 func New(cfg *config.Store, sec secrets.Store, env discovery.Env, log *slog.Logger) *App {

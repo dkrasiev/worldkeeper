@@ -812,3 +812,7 @@ label select {
 .build-list .mono {
   overflow-wrap: anywhere;
 }
+/* A hint under a checkbox, pulled up to it. */
+.check-hint {
+  margin: -10px 0 0;
+}

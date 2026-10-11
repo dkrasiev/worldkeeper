@@ -266,6 +266,8 @@ export const en = {
   "settings.buildRunning": "running",
   "settings.branchHint":
     "A pull request's branch has test builds while the pull request is open. Once it is merged or closed, develop's builds are offered.",
+  "settings.startWithSystem": "Start Worldkeeper when you log in",
+  "settings.startWithSystemHint": "It starts in the tray, without opening the browser.",
   "settings.saved": "Settings saved.",
   "settings.save": "Save settings",
   "settings.saving": "Saving…",
@@ -303,4 +305,5 @@ export const en = {
   "err.update_channel_unknown": "Unknown update channel.",
   "err.update_branch_invalid": "Invalid branch name: {branch}",
   "err.builds_unavailable": "Cannot list test builds: {error}",
+  "err.autostart_failed": "Settings saved, but starting with the system could not be changed: {error}",
 } satisfies Record<string, string | Plural>;

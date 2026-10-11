@@ -319,6 +319,16 @@ export function SettingsView() {
       )}
       <UpdateCheck status={update} onChange={setUpdate} />
 
+      {form.startWithSystem !== undefined && (
+        <>
+          <label className="check">
+            <input type="checkbox" checked={form.startWithSystem} onChange={(e) => set("startWithSystem", e.target.checked)} />
+            {t("settings.startWithSystem")}
+          </label>
+          <p className="hint check-hint">{t("settings.startWithSystemHint")}</p>
+        </>
+      )}
+
       {status && <div className={`callout ${status.ok ? "success" : "error"}`}>{status.text}</div>}
       <div className="actions">
         <button className="primary" disabled={busy}>

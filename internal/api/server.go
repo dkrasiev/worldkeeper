@@ -271,6 +271,9 @@ type settings struct {
 	UpdateBranch   string        `json:"updateBranch"`
 	// Notifications is nil from clients from before the setting; they keep it.
 	Notifications *bool `json:"notifications,omitempty"`
+	// StartWithSystem lives in the OS, not the config. It is absent where
+	// autostart is unavailable; absent in a request, it is left as is.
+	StartWithSystem *bool `json:"startWithSystem,omitempty"`
 
 	ResticPasswordSet bool `json:"resticPasswordSet"` // response only
 	// ResticPassword is write-only: when non-empty it replaces the stored password.
@@ -298,8 +301,22 @@ func (s *Server) toSettings(c config.Config) settings {
 		UpdateChannel:     c.UpdateChannel,
 		UpdateBranch:      c.UpdateBranch,
 		Notifications:     &c.Notifications,
+		StartWithSystem:   s.startWithSystem(),
 		ResticPasswordSet: pwSet,
 	}
+}
+
+// startWithSystem reads the autostart state, or nil when it is unknown.
+func (s *Server) startWithSystem() *bool {
+	if s.app.Autostart == nil {
+		return nil
+	}
+	on, err := s.app.Autostart.Enabled()
+	if err != nil {
+		s.app.Log.Warn("cannot read autostart state", "err", err)
+		return nil
+	}
+	return &on
 }
 
 func (s *Server) getConfig(w http.ResponseWriter, r *http.Request) {
@@ -412,6 +429,17 @@ func (s *Server) putConfig(w http.ResponseWriter, r *http.Request) {
 		}
 		return nil
 	})
+	// Autostart changes only once the rest is valid and saved.
+	if err == nil && in.StartWithSystem != nil && s.app.Autostart != nil {
+		if on, _ := s.app.Autostart.Enabled(); on != *in.StartWithSystem {
+			if err := s.app.Autostart.Set(*in.StartWithSystem); err != nil {
+				writeAPIError(w, &apiError{status: http.StatusInternalServerError, code: "internal", key: "autostart_failed",
+					params: map[string]string{"error": err.Error()},
+					msg:    "settings saved, but starting with the system could not be changed: " + err.Error()})
+				return
+			}
+		}
+	}
 	respond(w, s.toSettings(cfg), err)
 }
 

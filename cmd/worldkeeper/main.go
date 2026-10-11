@@ -26,6 +26,7 @@ import (
 	"github.com/dkrasiev/worldkeeper/internal/discovery"
 	"github.com/dkrasiev/worldkeeper/internal/notify"
 	"github.com/dkrasiev/worldkeeper/internal/secrets"
+	"github.com/dkrasiev/worldkeeper/internal/shell"
 	"github.com/dkrasiev/worldkeeper/internal/snapshot"
 	"github.com/dkrasiev/worldkeeper/internal/tray"
 	"github.com/dkrasiev/worldkeeper/web"
@@ -107,11 +108,21 @@ func run() error {
 
 	switch flag.Arg(0) {
 	case "", "serve":
+		if as, err := autostart(*cfgPath, defaultCfg); err != nil {
+			log.Warn("start with system is unavailable", "err", err)
+		} else {
+			a.Autostart = as
+			if moved, err := as.Refresh(); err != nil {
+				log.Warn("cannot update the start with system entry", "err", err)
+			} else if moved {
+				log.Info("start with system now points to this copy", "exe", as.Command[0])
+			}
+		}
 		useTray := !*noTray && tray.Available && trayHostAvailable()
 		// With a tray icon the UI is one click away; only open it unasked on
 		// the very first start, so login autostart does not pop a browser.
 		openUI := !*noBrowser && (!useTray || firstRun)
-		return serve(a, log, openUI, useTray)
+		return serve(a, log, openUI, useTray, !*noBrowser)
 	case "list":
 		return list(a)
 	case "backup":
@@ -150,7 +161,9 @@ func list(a *app.App) error {
 	return tw.Flush()
 }
 
-func serve(a *app.App, log *slog.Logger, openUI, useTray bool) error {
+// serve runs until Quit or a signal. When another worldkeeper already
+// serves, it opens that one's UI if showRunning, and exits.
+func serve(a *app.App, log *slog.Logger, openUI, useTray, showRunning bool) error {
 	cfg := a.Config.Get()
 	host, _, err := net.SplitHostPort(cfg.Listen)
 	if err != nil {
@@ -163,8 +176,13 @@ func serve(a *app.App, log *slog.Logger, openUI, useTray bool) error {
 
 	ln, err := net.Listen("tcp", cfg.Listen)
 	if err != nil {
-		// Most likely worldkeeper is already running: just show its UI.
+		// Most likely worldkeeper is already running: just show its UI. A
+		// second start at login (-no-browser) leaves it be.
 		if alreadyRunning(cfg.Listen) {
+			if !showRunning {
+				log.Info("worldkeeper is already running")
+				return nil
+			}
 			log.Info("worldkeeper is already running, opening UI")
 			return openBrowser(url)
 		}
@@ -224,6 +242,24 @@ func serve(a *app.App, log *slog.Logger, openUI, useTray bool) error {
 	}
 }
 
+// autostart starts this executable at login, quietly in the tray, with the
+// same config file.
+func autostart(cfgPath, defaultCfg string) (*shell.Autostart, error) {
+	exe, err := os.Executable()
+	if err != nil {
+		return nil, err
+	}
+	cmd := []string{exe, "-no-browser"}
+	if cfgPath != defaultCfg {
+		abs, err := filepath.Abs(cfgPath)
+		if err != nil {
+			return nil, err
+		}
+		cmd = append(cmd, "-config", abs)
+	}
+	return shell.NewAutostart(cmd), nil
+}
+
 // trayHostAvailable reports whether a tray can be shown: on Linux the icon
 // lives on the D-Bus session bus, which headless systems do not have.
 func trayHostAvailable() bool {
@@ -271,6 +307,21 @@ func (c *trayController) SetAutoBackup(on bool) error {
 func (c *trayController) Locale() string { return c.app.Locale() }
 
 func (c *trayController) LocaleChanged() <-chan struct{} { return c.app.LocaleChanged() }
+
+func (c *trayController) StartWithSystem() bool {
+	if c.app.Autostart == nil {
+		return false
+	}
+	on, _ := c.app.Autostart.Enabled()
+	return on
+}
+
+func (c *trayController) SetStartWithSystem(on bool) error {
+	if c.app.Autostart == nil {
+		return errors.New("start with system is unavailable")
+	}
+	return c.app.Autostart.Set(on)
+}
 
 func (c *trayController) Status() tray.Status {
 	h := c.app.Health()

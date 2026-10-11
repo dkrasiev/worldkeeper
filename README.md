@@ -49,6 +49,7 @@ While running, Worldkeeper sits in the system tray (Windows), the menu bar (macO
 - **Open Worldkeeper** opens the web UI;
 - **Back up now** backs up every world that changed since its last save;
 - **Back up when a world is closed** toggles the automatic backup;
+- **Start at login** toggles [starting with your computer](#start-with-your-computer);
 - **Download version …** appears when a newer release is out and opens its page;
 - **Quit Worldkeeper** stops it.
 
@@ -66,11 +67,15 @@ Worldkeeper checks for a new release on start and then once a day. When one is o
 
 **Test builds.** On Windows x64, **Settings → Offer updates → Test builds** also offers the newest build of the `develop` branch, as soon as a change is merged there. These builds are for trying out what comes next and can have bugs, backups included. **Download** then fetches the build itself. Switch back to **Releases** any time; you are offered the next release once it is out. Under **Branch** you can follow a pull request's branch instead of `develop`, while the pull request is open; once it is merged or closed you get `develop`'s builds again. **Test builds to download** lists the last five builds of `develop` and the latest build of each open pull request, each with its own download link.
 
-To start Worldkeeper with your computer:
+### Start with your computer
 
-- **Windows:** put a shortcut to `worldkeeper.exe` in `shell:startup`.
-- **macOS:** add Worldkeeper from Applications under System Settings → General → Login Items (**Open at Login**, the **+** button).
-- **Linux:** use a systemd user service or your desktop's autostart.
+Turn on **Settings → Start Worldkeeper when you log in**, or **Start at login** in the tray menu. Worldkeeper then starts at login in the tray, without opening the browser. It registers itself the usual way for your OS:
+
+- **Windows:** a `Worldkeeper` value under `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`. It is listed in Task Manager → Startup apps, and turning it off there turns it off in Worldkeeper too. A shortcut to Worldkeeper you put in `shell:startup` earlier counts as on, and is replaced by the registry value when you change the setting.
+- **macOS:** a LaunchAgent, `~/Library/LaunchAgents/io.github.dkrasiev.worldkeeper.plist`, that starts the program inside Worldkeeper.app (or the command-line one you run). macOS may list it under System Settings → General → Login Items → **Allow in the Background**.
+- **Linux:** an autostart entry, `~/.config/autostart/io.github.dkrasiev.worldkeeper.desktop`, which GNOME, KDE and most other desktops start at login.
+
+If you move the program, start it once from its new place and the entry follows it. On macOS and Linux, if you set up autostart by hand before (Worldkeeper under Login Items → **Open at Login**, a systemd user service, your own autostart entry), remove that one so Worldkeeper does not start twice. To uninstall, turn the setting off before deleting the program.
 
 ## Restic storage (optional)
 
@@ -160,6 +165,7 @@ Plural entries use the CLDR categories (`one`, `few`, `many`, `other`, …) that
 | `internal/app` | Backup and restore logic, auto-backup watcher, activity feed |
 | `internal/api` | Local HTTP API (loopback only, token protected) and the embedded UI |
 | `internal/icon` | The grass-block icon, drawn in code, for the tray and the macOS app |
+| `internal/shell` | Desktop integration: starting at login (Run key, LaunchAgent, XDG autostart) |
 | `tools/macapp` | Packs the macOS release build into `Worldkeeper.app` and zips it |
 | `web/` | React + Vite UI; translations in `web/src/i18n/` |
 

@@ -280,6 +280,8 @@ export const ru: Dict = {
   "settings.buildRunning": "запущена",
   "settings.branchHint":
     "Пока pull request открыт, у его ветки есть тестовые сборки. Когда его сольют или закроют, будут предлагаться сборки develop.",
+  "settings.startWithSystem": "Запускать Worldkeeper при входе в систему",
+  "settings.startWithSystemHint": "Он запустится в трее, не открывая браузер.",
   "settings.saved": "Настройки сохранены.",
   "settings.save": "Сохранить настройки",
   "settings.saving": "Сохраняем…",
@@ -317,4 +319,5 @@ export const ru: Dict = {
   "err.update_channel_unknown": "Неизвестный канал обновлений.",
   "err.update_branch_invalid": "Недопустимое имя ветки: {branch}",
   "err.builds_unavailable": "Не удалось получить список тестовых сборок: {error}",
+  "err.autostart_failed": "Настройки сохранены, но автозапуск изменить не удалось: {error}",
 };

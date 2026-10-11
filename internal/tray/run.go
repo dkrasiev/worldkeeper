@@ -32,6 +32,7 @@ func Run(ctx context.Context, c Controller, log *slog.Logger) error {
 		open := systray.AddMenuItem("", "")
 		backup := systray.AddMenuItem("", "")
 		auto := systray.AddMenuItemCheckbox("", "", c.AutoBackup())
+		startup := systray.AddMenuItemCheckbox("", "", c.StartWithSystem())
 		systray.AddSeparator()
 		about := systray.AddMenuItem("Worldkeeper "+c.Version(), "")
 		about.Disable()
@@ -67,13 +68,9 @@ func Run(ctx context.Context, c Controller, log *slog.Logger) error {
 					systray.SetIcon(normal)
 				}
 			}
-			if c.AutoBackup() != auto.Checked() {
-				if c.AutoBackup() {
-					auto.Check()
-				} else {
-					auto.Uncheck()
-				}
-			}
+			setChecked(auto, c.AutoBackup())
+			// Read from the OS: Settings or Task Manager may have changed it.
+			setChecked(startup, c.StartWithSystem())
 		}
 		retitle := func() {
 			open.SetTitle(text(locale, "open"))
@@ -83,6 +80,7 @@ func Run(ctx context.Context, c Controller, log *slog.Logger) error {
 				backup.SetTitle(text(locale, "backupNow"))
 			}
 			auto.SetTitle(text(locale, "auto"))
+			startup.SetTitle(text(locale, "startup"))
 			if offered != "" {
 				upd.SetTitle(text(locale, "update", offered))
 			}
@@ -123,6 +121,11 @@ func Run(ctx context.Context, c Controller, log *slog.Logger) error {
 						log.Warn("toggle auto backup", "err", err)
 					}
 					refresh()
+				case <-startup.ClickedCh:
+					if err := c.SetStartWithSystem(!startup.Checked()); err != nil {
+						log.Warn("toggle start with system", "err", err)
+					}
+					refresh()
 				case <-upd.ClickedCh:
 					c.OpenUpdate()
 				case <-quit.ClickedCh:
@@ -135,4 +138,15 @@ func Run(ctx context.Context, c Controller, log *slog.Logger) error {
 
 	systray.Run(onReady, func() {})
 	return nil
+}
+
+func setChecked(item *systray.MenuItem, on bool) {
+	if on == item.Checked() {
+		return
+	}
+	if on {
+		item.Check()
+	} else {
+		item.Uncheck()
+	}
 }
