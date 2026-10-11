@@ -45,12 +45,7 @@ func (r *Runner) command(ctx context.Context, args ...string) *exec.Cmd {
 	return cmd
 }
 
-func (r *Runner) binary() string {
-	if r.Binary == "" {
-		return "restic"
-	}
-	return r.Binary
-}
+func (r *Runner) binary() string { return Resolve(r.Binary) }
 
 // Version returns the installed restic version, e.g. "0.18.1".
 func (r *Runner) Version(ctx context.Context) (string, error) {
