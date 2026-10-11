@@ -30,6 +30,9 @@ type App struct {
 	// Version is the running build's version ("0.1.0", "0.2.0-dev.abc1234",
 	// or "dev" for go run / go build without release flags).
 	Version string
+	// SystemLocale is the OS language ("ru-RU"); Locale prefers the one
+	// picked in the web UI.
+	SystemLocale string
 
 	Config  *config.Store
 	Secrets secrets.Store
@@ -53,6 +56,7 @@ type App struct {
 	lastBackup lastBackupCache
 	jobs       jobs
 	updates    updateState
+	locale     localeState
 }
 
 func New(cfg *config.Store, sec secrets.Store, env discovery.Env, log *slog.Logger) *App {

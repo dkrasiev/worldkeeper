@@ -126,6 +126,28 @@ func TestUpdateSettings(t *testing.T) {
 	}
 }
 
+func TestLanguage(t *testing.T) {
+	h, token := newServer(t)
+	host := "127.0.0.1:25599"
+	if rec := do(h, "GET", "/api/language", host, token, ""); rec.Code != 200 || !strings.Contains(rec.Body.String(), `"language":""`) {
+		t.Errorf("nothing picked yet: %d %s", rec.Code, rec.Body)
+	}
+	if rec := do(h, "PUT", "/api/language", host, token, `{"language":"ru"}`); rec.Code != 200 || !strings.Contains(rec.Body.String(), `"locale":"ru"`) {
+		t.Errorf("pick ru: %d %s", rec.Code, rec.Body)
+	}
+	if rec := do(h, "PUT", "/api/language", host, token, `{"language":"<script>"}`); rec.Code != 400 || !strings.Contains(rec.Body.String(), `"key":"language_invalid"`) {
+		t.Errorf("bad tag: %d %s", rec.Code, rec.Body)
+	}
+	// Saving the settings form keeps the language, which it does not carry.
+	body := `{"engine":"zip","storageDir":` + strconv.Quote(t.TempDir()) + `,"keepAuto":5,"pollSeconds":15}`
+	if rec := do(h, "PUT", "/api/config", host, token, body); rec.Code != 200 {
+		t.Fatalf("put config: %d %s", rec.Code, rec.Body)
+	}
+	if rec := do(h, "GET", "/api/language", host, token, ""); !strings.Contains(rec.Body.String(), `"language":"ru"`) {
+		t.Errorf("after saving settings: %s", rec.Body)
+	}
+}
+
 func TestSnapshotFlow(t *testing.T) {
 	h, token := newServer(t)
 	host := "127.0.0.1:25599"

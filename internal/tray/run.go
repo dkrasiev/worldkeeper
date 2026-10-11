@@ -18,26 +18,31 @@ const refreshEvery = 15 * time.Second
 
 // Run shows the tray icon and blocks until the user picks Quit or ctx is
 // cancelled. On macOS it must be called from the main goroutine.
-func Run(ctx context.Context, c Controller, locale string, log *slog.Logger) error {
+func Run(ctx context.Context, c Controller, log *slog.Logger) error {
 	normal, warning := icons()
 
 	onReady := func() {
 		systray.SetIcon(normal)
 		systray.SetTooltip("Worldkeeper")
 
+		// Titles are set by retitle, in the current language.
 		status := systray.AddMenuItem("", "")
 		status.Disable()
 		systray.AddSeparator()
-		open := systray.AddMenuItem(text(locale, "open"), "")
-		backup := systray.AddMenuItem(text(locale, "backupNow"), "")
-		auto := systray.AddMenuItemCheckbox(text(locale, "auto"), "", c.AutoBackup())
+		open := systray.AddMenuItem("", "")
+		backup := systray.AddMenuItem("", "")
+		auto := systray.AddMenuItemCheckbox("", "", c.AutoBackup())
 		systray.AddSeparator()
 		about := systray.AddMenuItem("Worldkeeper "+c.Version(), "")
 		about.Disable()
 		upd := systray.AddMenuItem("", "")
 		upd.Hide() // until a newer release is found
-		quit := systray.AddMenuItem(text(locale, "quit"), "")
+		quit := systray.AddMenuItem("", "")
 
+		// Menu state below is only touched by onReady and then the loop.
+		localeChanged := c.LocaleChanged() // before Locale, so no change is missed
+		locale := c.Locale()
+		backingUp := false
 		failing := false
 		offered := "" // version the update item shows
 		refresh := func() {
@@ -70,8 +75,23 @@ func Run(ctx context.Context, c Controller, locale string, log *slog.Logger) err
 				}
 			}
 		}
-		refresh()
+		retitle := func() {
+			open.SetTitle(text(locale, "open"))
+			if backingUp {
+				backup.SetTitle(text(locale, "backingUp"))
+			} else {
+				backup.SetTitle(text(locale, "backupNow"))
+			}
+			auto.SetTitle(text(locale, "auto"))
+			if offered != "" {
+				upd.SetTitle(text(locale, "update", offered))
+			}
+			quit.SetTitle(text(locale, "quit"))
+			refresh()
+		}
+		retitle()
 
+		backedUp := make(chan BackupResult, 1)
 		go func() {
 			ticker := time.NewTicker(refreshEvery)
 			defer ticker.Stop()
@@ -82,17 +102,22 @@ func Run(ctx context.Context, c Controller, locale string, log *slog.Logger) err
 					return
 				case <-ticker.C:
 					refresh()
+				case <-localeChanged:
+					localeChanged = c.LocaleChanged()
+					locale = c.Locale()
+					retitle()
 				case <-open.ClickedCh:
 					c.OpenUI()
 				case <-backup.ClickedCh:
 					backup.Disable()
+					backingUp = true
 					backup.SetTitle(text(locale, "backingUp"))
-					go func() {
-						r := c.BackupNow()
-						status.SetTitle(resultLine(locale, r))
-						backup.SetTitle(text(locale, "backupNow"))
-						backup.Enable()
-					}()
+					go func() { backedUp <- c.BackupNow() }()
+				case r := <-backedUp:
+					backingUp = false
+					status.SetTitle(resultLine(locale, r))
+					backup.SetTitle(text(locale, "backupNow"))
+					backup.Enable()
 				case <-auto.ClickedCh:
 					if err := c.SetAutoBackup(!auto.Checked()); err != nil {
 						log.Warn("toggle auto backup", "err", err)

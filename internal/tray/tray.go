@@ -27,6 +27,12 @@ type Controller interface {
 	Update() string
 	// OpenUpdate opens the newer release's download page.
 	OpenUpdate()
+	// Locale is the menu language: the one picked in the web UI, or the
+	// OS language (see Locale) until one is picked.
+	Locale() string
+	// LocaleChanged is closed when Locale changes; the menu then re-titles
+	// its items and asks for a new channel.
+	LocaleChanged() <-chan struct{}
 }
 
 type BackupResult struct {

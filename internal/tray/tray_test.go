@@ -20,6 +20,8 @@ func TestStatusLine(t *testing.T) {
 		{"en-US", Status{LastBackup: now.AddDate(0, 0, -2)}, "Last backup: 2026-10-03 20:00"},
 		{"ru-RU", Status{FailingWorld: "Мой мир", Error: "NAS offline"}, "⚠ Бэкап не удался: Мой мир"},
 		{"de", Status{Error: "repository locked"}, "⚠ Backup storage is unavailable"}, // unknown language -> English
+		{"ru", Status{}, "Бэкапов пока нет"},                                          // as the web UI sends it
+		{"", Status{}, "No backups yet"},
 	}
 	for _, c := range cases {
 		if got := statusLine(c.locale, c.s, now); got != c.want {

@@ -40,6 +40,8 @@ func New(a *app.App, ui fs.FS) http.Handler {
 	mux.HandleFunc("POST /api/update/check", s.checkUpdate)
 	mux.HandleFunc("GET /api/config", s.getConfig)
 	mux.HandleFunc("PUT /api/config", s.putConfig)
+	mux.HandleFunc("GET /api/language", s.getLanguage)
+	mux.HandleFunc("PUT /api/language", s.putLanguage)
 	mux.HandleFunc("POST /api/restic/check", s.resticCheck)
 	mux.HandleFunc("POST /api/restic/init", s.resticInit)
 	mux.HandleFunc("GET /api/worlds/{id}", s.worldInfo)
@@ -367,6 +369,34 @@ func (s *Server) putConfig(w http.ResponseWriter, r *http.Request) {
 		return nil
 	})
 	respond(w, s.toSettings(cfg), err)
+}
+
+// language is the language picked in the web UI ("" until one is) and the
+// locale the tray menu uses.
+func (s *Server) language() map[string]string {
+	return map[string]string{"language": s.app.Config.Get().Language, "locale": s.app.Locale()}
+}
+
+func (s *Server) getLanguage(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, s.language())
+}
+
+// putLanguage saves the language picked in the web UI; "" goes back to the
+// OS language. It is separate from the settings form because the language
+// picker sits in the top bar.
+func (s *Server) putLanguage(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Language string `json:"language"`
+	}
+	if !decode(w, r, &body) {
+		return
+	}
+	if !app.ValidLanguage(body.Language) {
+		writeAPIError(w, badRequest("language_invalid", "not a language tag: "+body.Language))
+		return
+	}
+	err := s.app.SetLanguage(body.Language)
+	respond(w, s.language(), err)
 }
 
 // apiError is a client-facing error. key and params let the UI show it in
