@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"slices"
 	"sync"
 	"time"
 
@@ -190,27 +191,44 @@ type Details struct {
 	InUse bool `json:"inUse"`
 }
 
-func (a *App) Info(id string) (Details, error) {
+// Info reads the world page. The player sections describe player (a UUID),
+// or the world's main player when player is empty or unknown.
+func (a *App) Info(id, player string) (Details, error) {
 	w, err := a.find(id)
 	if err != nil {
 		return Details{}, err
 	}
-	info, err := worldinfo.Read(w.Path)
+	info, err := worldinfo.Read(w.Path, player)
 	if err != nil {
 		return Details{}, err
 	}
+	a.namePlayers(&info, w.SavesDir)
 	inUse, _ := lock.InUse(w.Path)
 	return Details{World: w, Info: info, InUse: inUse}, nil
 }
 
-// Advancements returns the player's advancement progress in the format the
-// mcwidgets advancement viewer reads.
-func (a *App) Advancements(id string) (map[string]any, error) {
+// namePlayers fills in player names from the launcher's usercache.json.
+// It copies the list, so cached infos are never modified.
+func (a *App) namePlayers(info *worldinfo.Info, savesDir string) {
+	if len(info.Players) == 0 {
+		return
+	}
+	names := discovery.PlayerNames(a.Env, savesDir)
+	players := slices.Clone(info.Players)
+	for i := range players {
+		players[i].Name = names[players[i].UUID]
+	}
+	info.Players = players
+}
+
+// Advancements returns a player's advancement progress (see Info) in the
+// format the mcwidgets advancement viewer reads.
+func (a *App) Advancements(id, player string) (map[string]any, error) {
 	w, err := a.find(id)
 	if err != nil {
 		return nil, err
 	}
-	return worldinfo.AdvancementProgress(w.Path), nil
+	return worldinfo.AdvancementProgress(w.Path, player), nil
 }
 
 // IconPath returns the world's icon.png path.

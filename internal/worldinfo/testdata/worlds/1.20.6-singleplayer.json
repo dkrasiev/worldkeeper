@@ -86,6 +86,14 @@
       "universalAnger": "false",
       "waterSourceConversion": "true"
     },
+    "players": [
+      {
+        "uuid": "00000000-0000-4000-8000-000000000001",
+        "owner": true,
+        "playTimeSeconds": 53
+      }
+    ],
+    "playerUuid": "00000000-0000-4000-8000-000000000001",
     "player": {
       "dimension": "minecraft:overworld",
       "pos": [

@@ -216,6 +216,38 @@ func profileRoots(mcDir string) []Root {
 	return roots
 }
 
+// PlayerNames maps player UUIDs (lower case, with dashes) to the names the
+// game remembers in usercache.json. It reads the game directory that holds
+// savesDir first (the official launcher's .minecraft, a Prism or Modrinth
+// instance, ...), then the official launcher's for players it does not know.
+func PlayerNames(env Env, savesDir string) map[string]string {
+	names := map[string]string{}
+	dirs := []string{filepath.Dir(DefaultSavesDir(env))}
+	if savesDir != "" {
+		dirs = append([]string{filepath.Dir(savesDir)}, dirs...)
+	}
+	for _, dir := range dirs {
+		b, err := os.ReadFile(filepath.Join(dir, "usercache.json"))
+		if err != nil {
+			continue
+		}
+		var cache []struct {
+			Name string `json:"name"`
+			UUID string `json:"uuid"`
+		}
+		if json.Unmarshal(b, &cache) != nil {
+			continue
+		}
+		for _, e := range cache {
+			id := strings.ToLower(e.UUID)
+			if _, ok := names[id]; !ok && e.Name != "" {
+				names[id] = e.Name
+			}
+		}
+	}
+	return names
+}
+
 // WorldID builds a URL- and filesystem-safe key from the source and world
 // folder. Unicode letters are kept so that non-Latin world names stay distinct.
 func WorldID(source, folder string) string {

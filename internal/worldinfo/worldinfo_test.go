@@ -1,6 +1,8 @@
 package worldinfo
 
 import (
+	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -10,7 +12,7 @@ import (
 func TestRead(t *testing.T) {
 	dir := testworld.Create(t, t.TempDir(), "w1", testworld.Options{Name: "Мой мир", LastPlayed: 1759680000000})
 
-	info, err := Read(dir)
+	info, err := Read(dir, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -74,7 +76,7 @@ func TestDimensionID(t *testing.T) {
 
 func TestAdvancementProgress(t *testing.T) {
 	dir := testworld.Create(t, t.TempDir(), "w", testworld.Options{})
-	p := AdvancementProgress(dir)
+	p := AdvancementProgress(dir, "")
 	if p["minecraft:story/root"] != true || p["minecraft:story/mine_stone"] != true {
 		t.Errorf("done advancements missing: %v", p)
 	}
@@ -94,7 +96,7 @@ func TestAdvancementProgress(t *testing.T) {
 func TestRead26Layout(t *testing.T) {
 	dir := testworld.Create(t, t.TempDir(), "New World", testworld.Options{Layout26: true})
 
-	info, err := Read(dir)
+	info, err := Read(dir, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -123,11 +125,72 @@ func TestRead26Layout(t *testing.T) {
 		t.Errorf("spawn = %v", info.Spawn)
 	}
 
-	p := AdvancementProgress(dir)
+	p := AdvancementProgress(dir, "")
 	if p["minecraft:story/root"] != true {
 		t.Errorf("progress = %v", p)
 	}
 	if _, ok := p["minecraft:adventure/adventuring_time"].(map[string]any); !ok {
 		t.Errorf("partial progress missing: %v", p)
+	}
+}
+
+// In a world several people played (LAN, a server world, a shared save)
+// every player section shows the same player: the owner by default.
+func TestPlayers(t *testing.T) {
+	const owner, guest, other = "00000000-0000-4000-8000-000000000001", "00000000-0000-4000-8000-000000000002", "00000000-0000-4000-8000-000000000003"
+	players := []testworld.Player{
+		{UUID: owner, PlayTicks: 20 * 600, XpLevel: 5, Advancements: []string{"minecraft:story/root"}},
+		{UUID: guest, PlayTicks: 20 * 3600, XpLevel: 20, Advancements: []string{"minecraft:story/root", "minecraft:story/mine_stone", "minecraft:story/smelt_iron"}},
+		{UUID: other, PlayTicks: 20 * 60, XpLevel: 1},
+	}
+	for _, layout26 := range []bool{false, true} {
+		dir := testworld.Create(t, t.TempDir(), "w", testworld.Options{Layout26: layout26, Players: players, Owner: owner})
+		check := func(player, wantUUID string, wantXP, wantPlay int64, wantAdv int) {
+			t.Helper()
+			info, err := Read(dir, player)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if info.PlayerUUID != wantUUID || info.Player == nil || info.Player.XPLevel != wantXP ||
+				info.Stats == nil || info.Stats.PlayTimeSeconds != wantPlay || info.Advancements != wantAdv {
+				t.Errorf("26.x %v, player %q: got %s player=%+v stats=%+v adv=%d", layout26, player, info.PlayerUUID, info.Player, info.Stats, info.Advancements)
+			}
+			if p := AdvancementProgress(dir, player); len(p) != wantAdv {
+				t.Errorf("26.x %v, player %q: progress = %v", layout26, player, p)
+			}
+			want := []PlayerRef{{UUID: owner, Owner: true, PlayTimeSeconds: 600}, {UUID: guest, PlayTimeSeconds: 3600}, {UUID: other, PlayTimeSeconds: 60}}
+			if !reflect.DeepEqual(info.Players, want) {
+				t.Errorf("26.x %v: players = %+v", layout26, info.Players)
+			}
+		}
+		check("", owner, 5, 600, 1)
+		check(guest, guest, 20, 3600, 3)
+		check(strings.ToUpper(guest), guest, 20, 3600, 3)
+		check("../level", owner, 5, 600, 1) // not in the world: the main player
+	}
+
+	// Without a known owner, the one who played the most.
+	dir := testworld.Create(t, t.TempDir(), "server", testworld.Options{Layout26: true, Players: players})
+	info, err := Read(dir, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.PlayerUUID != guest || info.Players[0].UUID != guest || info.Players[0].Owner {
+		t.Errorf("no owner: main = %s, players = %+v", info.PlayerUUID, info.Players)
+	}
+}
+
+func TestReadUUID(t *testing.T) {
+	const notch = "069a79f4-44e9-4726-a5be-fca90e38aaf5"
+	for _, m := range []map[string]any{
+		{"UUID": []int32{0x069a79f4, 0x44e94726, -0x5a410357, 0x0e38aaf5}},               // 1.16+
+		{"UUIDMost": int64(0x069a79f444e94726), "UUIDLeast": int64(-0x5a410356f1c7550b)}, // before 1.16
+	} {
+		if got := readUUID(m, "UUID"); got != notch {
+			t.Errorf("readUUID(%v) = %q, want %q", m, got, notch)
+		}
+	}
+	if got := readUUID(map[string]any{}, "UUID"); got != "" {
+		t.Errorf("missing UUID = %q", got)
 	}
 }

@@ -41,6 +41,8 @@ type Info struct {
 	Brands           []string          `json:"brands"`
 	DataPacks        DataPacks         `json:"dataPacks"`
 	GameRules        map[string]string `json:"gameRules"`
+	Players          []PlayerRef       `json:"players"`              // everyone with data in the world, the main player first
+	PlayerUUID       string            `json:"playerUuid,omitempty"` // whom Player, Stats and Advancements describe
 	Player           *Player           `json:"player,omitempty"`
 	Stats            *Stats            `json:"stats,omitempty"`
 	Advancements     int               `json:"advancements"`
@@ -129,15 +131,17 @@ func summary(fsys fs.FS, folder string, d map[string]any) Summary {
 	return s
 }
 
-// Read gathers the full world info from a world folder.
-func Read(dir string) (Info, error) {
-	return ReadFS(os.DirFS(dir), filepath.Base(dir))
+// Read gathers the full world info from a world folder. The player
+// sections describe player (a UUID), or the main player when player is ""
+// or has no data in the world.
+func Read(dir, player string) (Info, error) {
+	return ReadFS(os.DirFS(dir), filepath.Base(dir), player)
 }
 
 // ReadFS gathers the full world info from any file system rooted at the
 // world folder: a directory, a zip snapshot or a restic snapshot. Missing
 // optional files are not errors. folder names the world if level.dat does not.
-func ReadFS(fsys fs.FS, folder string) (Info, error) {
+func ReadFS(fsys fs.FS, folder, player string) (Info, error) {
 	d, err := readLevel(fsys)
 	if err != nil {
 		return Info{}, err
@@ -201,25 +205,26 @@ func ReadFS(fsys fs.FS, folder string) (Info, error) {
 		}
 	}
 
-	info.Player = readPlayer(fsys, getMap(d, "Player"))
-	info.Stats = readStats(fsys)
-	info.Advancements = countAdvancements(fsys)
+	r := readRoster(fsys, d)
+	info.Players = r.list
+	if info.Players == nil {
+		info.Players = []PlayerRef{}
+	}
+	info.PlayerUUID = r.pick(player)
+	info.Player = readPlayer(r.playerData(fsys, d, info.PlayerUUID))
+	info.Stats = r.stats[info.PlayerUUID]
+	for _, a := range readAdvancements(fsys, r, info.PlayerUUID) {
+		if a.Done {
+			info.Advancements++
+		}
+	}
 	info.SizeBytes, info.Dimensions = scanDisk(fsys)
 	return info, nil
 }
 
-func readPlayer(fsys fs.FS, p map[string]any) *Player {
+func readPlayer(p map[string]any) *Player {
 	if p == nil {
-		// Newer versions may keep the singleplayer player only in playerdata/.
-		files := playerFiles(fsys, "data", "*.dat")
-		if len(files) == 0 {
-			return nil
-		}
-		root, err := readNBT(fsys, files[0])
-		if err != nil {
-			return nil
-		}
-		p = root
+		return nil
 	}
 	pl := &Player{Pos: getFloats(p, "Pos")}
 	if v, ok := first(p, "Dimension"); ok {
@@ -262,45 +267,37 @@ func readData(fsys fs.FS, name string) map[string]any {
 	return getMap(root, "data")
 }
 
-// readStats picks the stats file with the most play time (in singleplayer
-// there is normally just one).
-func readStats(fsys fs.FS) *Stats {
-	files := playerFiles(fsys, "stats", "*.json")
-	var best *Stats
-	for _, f := range files {
-		b, err := fs.ReadFile(fsys, f)
-		if err != nil {
-			continue
-		}
-		var raw struct {
-			Stats map[string]map[string]int64 `json:"stats"`
-		}
-		if json.Unmarshal(b, &raw) != nil {
-			continue
-		}
-		c := raw.Stats["minecraft:custom"]
-		ticks := c["minecraft:play_time"]
-		if ticks == 0 {
-			ticks = c["minecraft:play_one_minute"] // pre-1.17 name, still ticks
-		}
-		s := &Stats{
-			PlayTimeSeconds: ticks / 20,
-			Deaths:          c["minecraft:deaths"],
-			MobKills:        c["minecraft:mob_kills"],
-			Jumps:           c["minecraft:jump"],
-		}
-		var cm int64
-		for k, v := range c {
-			if strings.HasSuffix(k, "_one_cm") {
-				cm += v
-			}
-		}
-		s.DistanceMeters = cm / 100
-		if best == nil || s.PlayTimeSeconds > best.PlayTimeSeconds {
-			best = s
+// readStats reads one player's stats file; nil if it cannot be parsed.
+func readStats(fsys fs.FS, name string) *Stats {
+	b, err := fs.ReadFile(fsys, name)
+	if err != nil {
+		return nil
+	}
+	var raw struct {
+		Stats map[string]map[string]int64 `json:"stats"`
+	}
+	if json.Unmarshal(b, &raw) != nil {
+		return nil
+	}
+	c := raw.Stats["minecraft:custom"]
+	ticks := c["minecraft:play_time"]
+	if ticks == 0 {
+		ticks = c["minecraft:play_one_minute"] // pre-1.17 name, still ticks
+	}
+	s := &Stats{
+		PlayTimeSeconds: ticks / 20,
+		Deaths:          c["minecraft:deaths"],
+		MobKills:        c["minecraft:mob_kills"],
+		Jumps:           c["minecraft:jump"],
+	}
+	var cm int64
+	for k, v := range c {
+		if strings.HasSuffix(k, "_one_cm") {
+			cm += v
 		}
 	}
-	return best
+	s.DistanceMeters = cm / 100
+	return s
 }
 
 type advancement struct {
@@ -308,65 +305,48 @@ type advancement struct {
 	Done     bool              `json:"done"`
 }
 
-// readAdvancements returns the advancements file of the player with the most
-// completed advancements (in singleplayer there is normally just one).
-// Recipe unlocks are left out: the game tracks them as advancements too.
-func readAdvancements(fsys fs.FS) map[string]advancement {
-	files := playerFiles(fsys, "advancements", "*.json")
-	var best map[string]advancement
-	bestDone := -1
-	for _, f := range files {
-		b, err := fs.ReadFile(fsys, f)
-		if err != nil {
+// readAdvancements reads the advancements of player id. Recipe unlocks are
+// left out: the game tracks them as advancements too.
+func readAdvancements(fsys fs.FS, r roster, id string) map[string]advancement {
+	files := r.files[id]
+	if files == nil || files.advancements == "" {
+		return nil
+	}
+	b, err := fs.ReadFile(fsys, files.advancements)
+	if err != nil {
+		return nil
+	}
+	var raw map[string]json.RawMessage
+	if json.Unmarshal(b, &raw) != nil {
+		return nil
+	}
+	advs := map[string]advancement{}
+	for k, v := range raw {
+		if k == "DataVersion" || strings.Contains(k, ":recipes/") {
 			continue
 		}
-		var raw map[string]json.RawMessage
-		if json.Unmarshal(b, &raw) != nil {
-			continue
-		}
-		advs := map[string]advancement{}
-		done := 0
-		for k, v := range raw {
-			if k == "DataVersion" || strings.Contains(k, ":recipes/") {
-				continue
-			}
-			var a advancement
-			if json.Unmarshal(v, &a) != nil {
-				continue
-			}
+		var a advancement
+		if json.Unmarshal(v, &a) == nil {
 			advs[k] = a
-			if a.Done {
-				done++
-			}
-		}
-		if done > bestDone {
-			best, bestDone = advs, done
 		}
 	}
-	return best
-}
-
-func countAdvancements(fsys fs.FS) int {
-	n := 0
-	for _, a := range readAdvancements(fsys) {
-		if a.Done {
-			n++
-		}
-	}
-	return n
+	return advs
 }
 
 // AdvancementProgress converts the player's advancements into the progress
 // file format of the mcwidgets advancement viewer: id -> true when done,
-// otherwise id -> {"criteria": {name: true}} for partial progress.
-func AdvancementProgress(dir string) map[string]any {
-	return AdvancementProgressFS(os.DirFS(dir))
+// otherwise id -> {"criteria": {name: true}} for partial progress. The
+// player is chosen as in Read.
+func AdvancementProgress(dir, player string) map[string]any {
+	return AdvancementProgressFS(os.DirFS(dir), player)
 }
 
 // AdvancementProgressFS is AdvancementProgress for any world file system.
-func AdvancementProgressFS(fsys fs.FS) map[string]any {
+func AdvancementProgressFS(fsys fs.FS, player string) map[string]any {
+	level, _ := readLevel(fsys) // without level.dat the main player is the one with the most play time
+	r := readRoster(fsys, level)
 	out := map[string]any{}
-	for id, a := range readAdvancements(fsys) {
+	for id, a := range readAdvancements(fsys, r, r.pick(player)) {
 		switch {
 		case a.Done:
 			out[id] = true

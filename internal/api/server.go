@@ -147,8 +147,10 @@ func (s *Server) jobs(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, s.app.Jobs())
 }
 
+// worldInfo and the other world and save readers take ?player=<uuid> to
+// show another player than the world's main one (see Info.Players).
 func (s *Server) worldInfo(w http.ResponseWriter, r *http.Request) {
-	info, err := s.app.Info(r.PathValue("id"))
+	info, err := s.app.Info(r.PathValue("id"), r.URL.Query().Get("player"))
 	respond(w, info, err)
 }
 
@@ -179,7 +181,7 @@ func (s *Server) deleteWorld(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) advancements(w http.ResponseWriter, r *http.Request) {
-	progress, err := s.app.Advancements(r.PathValue("id"))
+	progress, err := s.app.Advancements(r.PathValue("id"), r.URL.Query().Get("player"))
 	respond(w, progress, err)
 }
 
@@ -219,12 +221,12 @@ func (s *Server) createSnapshot(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) snapshotInfo(w http.ResponseWriter, r *http.Request) {
-	d, err := s.app.SnapshotDetails(r.PathValue("id"), r.PathValue("snap"))
+	d, err := s.app.SnapshotDetails(r.PathValue("id"), r.PathValue("snap"), r.URL.Query().Get("player"))
 	respond(w, d.Info, err)
 }
 
 func (s *Server) snapshotAdvancements(w http.ResponseWriter, r *http.Request) {
-	d, err := s.app.SnapshotDetails(r.PathValue("id"), r.PathValue("snap"))
+	d, err := s.app.SnapshotDetails(r.PathValue("id"), r.PathValue("snap"), r.URL.Query().Get("player"))
 	respond(w, d.Advancements, err)
 }
 

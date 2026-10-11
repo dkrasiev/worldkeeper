@@ -235,11 +235,11 @@ func TestOpenListsAllAndRestoresOnlyMetadata(t *testing.T) {
 	}
 	tmp := string(closer.(removeDir))
 
-	info, err := worldinfo.ReadFS(fsys, "w")
+	info, err := worldinfo.ReadFS(fsys, "w", "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	want, _ := worldinfo.Read(world)
+	want, _ := worldinfo.Read(world, "")
 	if info.Seed != want.Seed || info.Advancements != want.Advancements || info.Player == nil || info.Stats == nil {
 		t.Errorf("from restic = %+v", info)
 	}

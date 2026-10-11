@@ -29,14 +29,14 @@ func TestGoldenWorlds(t *testing.T) {
 		name := e.Name()
 		t.Run(name, func(t *testing.T) {
 			dir := filepath.Join("testdata", "worlds", name)
-			info, err := Read(dir)
+			info, err := Read(dir, "")
 			if err != nil {
 				t.Fatal(err)
 			}
 			got, err := json.MarshalIndent(struct {
 				Info         Info           `json:"info"`
 				Advancements map[string]any `json:"advancementProgress"`
-			}{info, AdvancementProgress(dir)}, "", "  ")
+			}{info, AdvancementProgress(dir, "")}, "", "  ")
 			if err != nil {
 				t.Fatal(err)
 			}

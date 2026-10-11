@@ -57,6 +57,14 @@ export interface Overview {
   storageError?: string;
 }
 
+export interface PlayerRef {
+  uuid: string;
+  /** From the launcher's usercache.json; missing for players it never saw. */
+  name?: string;
+  owner?: boolean;
+  playTimeSeconds: number;
+}
+
 /** Everything read from a world's files, live or from a save. */
 export interface WorldData {
   name: string;
@@ -78,6 +86,10 @@ export interface WorldData {
   brands: string[];
   dataPacks: { enabled: string[]; disabled: string[] };
   gameRules: Record<string, string>;
+  /** Everyone with data in the world, the main player (owner, else most play time) first. */
+  players: PlayerRef[];
+  /** Whom player, stats and advancements describe. */
+  playerUuid?: string;
   player?: { dimension: string; pos?: number[]; health: number; food: number; xpLevel: number };
   stats?: {
     playTimeSeconds: number;
@@ -242,6 +254,8 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 }
 
 const w = (id: string) => `/api/worlds/${encodeURIComponent(id)}`;
+// Readers take an optional player UUID; without one the server shows the main player.
+const p = (player?: string) => (player ? `?player=${encodeURIComponent(player)}` : "");
 
 export const api = {
   overview: () => request<Overview>("GET", "/api/overview"),
@@ -252,12 +266,16 @@ export const api = {
   checkUpdate: () => request<UpdateStatus>("POST", "/api/update/check"),
   /** Published test builds: develop first, then open pull requests. */
   testBuilds: () => request<NonNullable<UpdateStatus["latest"]>[]>("GET", "/api/update/builds"),
-  world: (id: string) => request<WorldInfo>("GET", w(id)),
-  advancements: (id: string) => request<Record<string, unknown>>("GET", `${w(id)}/advancements`),
-  snapshotInfo: (id: string, snap: string) =>
-    request<WorldData>("GET", `${w(id)}/snapshots/${encodeURIComponent(snap)}/info`),
-  snapshotAdvancements: (id: string, snap: string) =>
-    request<Record<string, unknown>>("GET", `${w(id)}/snapshots/${encodeURIComponent(snap)}/advancements`),
+  world: (id: string, player?: string) => request<WorldInfo>("GET", w(id) + p(player)),
+  advancements: (id: string, player?: string) =>
+    request<Record<string, unknown>>("GET", `${w(id)}/advancements${p(player)}`),
+  snapshotInfo: (id: string, snap: string, player?: string) =>
+    request<WorldData>("GET", `${w(id)}/snapshots/${encodeURIComponent(snap)}/info${p(player)}`),
+  snapshotAdvancements: (id: string, snap: string, player?: string) =>
+    request<Record<string, unknown>>(
+      "GET",
+      `${w(id)}/snapshots/${encodeURIComponent(snap)}/advancements${p(player)}`,
+    ),
   snapshots: (id: string) => request<SnapshotIndex>("GET", `${w(id)}/snapshots`),
   jobs: () => request<Job[]>("GET", "/api/jobs"),
   /** Changes the name shown in the game; the folder keeps its name. */

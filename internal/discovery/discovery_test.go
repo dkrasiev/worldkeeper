@@ -84,6 +84,40 @@ func TestWindowsRoots(t *testing.T) {
 	}
 }
 
+func TestPlayerNames(t *testing.T) {
+	home := t.TempDir()
+	env := Env{GOOS: "linux", Home: home}
+	write := func(dir, content string) {
+		t.Helper()
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "usercache.json"), []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	instance := filepath.Join(home, ".local", "share", "PrismLauncher", "instances", "Fabric", "minecraft")
+	write(instance, `[{"name":"Alex","uuid":"00000000-0000-4000-8000-00000000000A","expiresOn":"2026-11-11 10:00:00 +0300"}]`)
+	write(filepath.Join(home, ".minecraft"), `[{"name":"OldAlex","uuid":"00000000-0000-4000-8000-00000000000a"},{"name":"Steve","uuid":"00000000-0000-4000-8000-000000000001"}]`)
+
+	got := PlayerNames(env, filepath.Join(instance, "saves"))
+	want := map[string]string{
+		"00000000-0000-4000-8000-00000000000a": "Alex", // the instance's own cache wins
+		"00000000-0000-4000-8000-000000000001": "Steve",
+	}
+	if len(got) != len(want) {
+		t.Fatalf("got %v, want %v", got, want)
+	}
+	for id, name := range want {
+		if got[id] != name {
+			t.Errorf("%s = %q, want %q", id, got[id], name)
+		}
+	}
+	if n := PlayerNames(Env{GOOS: "linux", Home: t.TempDir()}, ""); len(n) != 0 {
+		t.Errorf("no caches: got %v", n)
+	}
+}
+
 func keys(m map[string]World) []string {
 	var out []string
 	for k := range m {
