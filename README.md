@@ -8,7 +8,7 @@ Automatic backups for Minecraft: Java Edition worlds. Worldkeeper saves a world 
 
 - **Finds your worlds** in the official launcher (including custom profile game directories), Prism Launcher, CurseForge, and the Modrinth App on Windows, macOS, and Linux. You can also add any other `saves` folder yourself.
 - **Backs up when you exit a world.** Worldkeeper watches each world's `session.lock`, which the game locks while the world is open. When you exit, it saves the world. If the world has not changed since the last backup, it skips the save.
-- **Catches up and retries.** On startup it backs up worlds you played while it was not running. If the backup folder is unreachable (NAS asleep, laptop away from home), it retries until it succeeds, and failures show up in the Activity tab.
+- **Catches up and retries.** On startup it backs up worlds you played while it was not running. If the backup folder is unreachable (NAS asleep, laptop away from home), it retries until it succeeds. Failures show up in the Activity tab and as a desktop notification.
 - **Named saves.** Click "Save now" before fighting the Ender Dragon. Rotation only removes automatic saves and never deletes named ones.
 - **Load any save.** You can replace the current world or load the save as a new world next to it, named "… (restored <date>)" so the game lists both. Before replacing, Worldkeeper makes a safety save of the current state, so every restore can be undone.
 - **Rename and delete worlds.** Renaming changes the name shown in the game; the folder keeps its name, so the world stays linked to its saves. Before deleting, Worldkeeper saves the world unless its latest state is already saved, so a deleted world can be loaded back.
@@ -38,6 +38,10 @@ While running, Worldkeeper sits in the system tray (Windows), the menu bar (macO
 The menu is in English or Russian. It follows the system language until you pick a language in the web UI's top bar; from then on it follows that pick, switching right away, and keeps it after a restart. With the tray available, the browser opens on its own only on the very first start. Pass `-no-tray` to run without the icon, for example on a server. On Linux the icon needs a desktop with StatusNotifier support (KDE, or GNOME with the AppIndicator extension), and Worldkeeper runs without it when there is no D-Bus session.
 
 The log is written next to the config, in `worldkeeper.log`. The Activity feed (the last 100 events) is kept there too, in `events.json`, so failures from before a restart stay visible.
+
+### Notifications
+
+When a world's backup fails, Worldkeeper shows a desktop notification: a toast on Windows, a Notification Center banner on macOS, or a notification from your desktop's notification service on Linux. While the backup keeps failing and is retried, it does not notify again; it shows one more notification when the world is backed up again. Notifications use the same language as the tray menu. Turn them off under **Settings → Show a notification when a backup fails and when it works again**. On macOS they are shown through AppleScript, so System Settings → Notifications may list them under Script Editor.
 
 ### Updates
 

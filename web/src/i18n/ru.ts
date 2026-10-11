@@ -238,6 +238,7 @@ export const ru: Dict = {
   "settings.passwordFilePlaceholder": "Вместо связки ключей",
   "settings.init": "Создать репозиторий",
   "settings.autoBackup": "Делать бэкап мира автоматически, когда вы выходите из него в игре",
+  "settings.notifications": "Показывать уведомление, когда бэкап не удался и когда он снова работает",
   "settings.keepAuto": "Сколько автосохранений хранить для мира",
   "settings.keepAutoHint": "Именованные сохранения никогда не удаляются автоматически.",
   "settings.poll": "Проверять каждые (секунд)",

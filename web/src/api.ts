@@ -115,6 +115,8 @@ export interface Settings {
   checkUpdates: boolean;
   /** "dev" also offers test builds of the develop branch. */
   updateChannel: "stable" | "dev";
+  /** Desktop notification when a world's backups fail and recover. */
+  notifications: boolean;
 }
 
 /** New-release check (GET /api/update). */

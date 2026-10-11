@@ -42,6 +42,9 @@ type App struct {
 	// UpdateChecker finds new releases; the zero value asks GitHub.
 	UpdateChecker update.Checker
 
+	// Notifier, if set, announces failed and recovered backups.
+	Notifier Notifier
+
 	zip *snapshot.Store
 
 	resticMu    sync.Mutex
@@ -259,11 +262,16 @@ func (a *App) checkInUse(w discovery.World, force bool) error {
 }
 
 // backup records every real failure in the activity feed; "in use" and
-// "unchanged" are expected outcomes, not failures.
+// "unchanged" are expected outcomes, not failures. Only the first failure
+// of a world is announced: the watcher retries it on every pass.
 func (a *App) backup(w discovery.World, o BackupOptions) (snapshot.Snapshot, error) {
 	snap, err := a.doBackup(w, o)
 	if err != nil && !errors.Is(err, ErrInUse) && !errors.Is(err, ErrUnchanged) {
+		first := !a.backupFailing(w.ID)
 		a.event(EventError, w.ID, w.Folder, CodeBackupFailed, map[string]string{"error": err.Error()}, "Backup failed: "+err.Error())
+		if first {
+			a.notifyFailed(a.displayName(w), err.Error())
+		}
 	}
 	return snap, err
 }
@@ -305,8 +313,12 @@ func (a *App) doBackup(w discovery.World, o BackupOptions) (snapshot.Snapshot, e
 		return snapshot.Snapshot{}, err
 	}
 	a.lastBackup.noteBackup(a, snap.CreatedAt)
+	recovered := a.backupFailing(w.ID)
 	a.event(EventBackup, w.ID, sum.Name, CodeBackupSaved, map[string]string{"kind": string(o.Kind), "snapshot": snap.ID},
 		fmt.Sprintf("Saved %s snapshot %s", o.Kind, snap.ID))
+	if recovered {
+		a.notifyRecovered(sum.Name)
+	}
 
 	if removed, err := store.Prune(w.ID, a.Config.Get().KeepAuto); err != nil {
 		a.Log.Warn("prune failed", "world", w.ID, "err", err)

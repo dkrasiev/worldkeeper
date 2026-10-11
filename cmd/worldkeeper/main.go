@@ -24,6 +24,7 @@ import (
 	"github.com/dkrasiev/worldkeeper/internal/app"
 	"github.com/dkrasiev/worldkeeper/internal/config"
 	"github.com/dkrasiev/worldkeeper/internal/discovery"
+	"github.com/dkrasiev/worldkeeper/internal/notify"
 	"github.com/dkrasiev/worldkeeper/internal/secrets"
 	"github.com/dkrasiev/worldkeeper/internal/snapshot"
 	"github.com/dkrasiev/worldkeeper/internal/tray"
@@ -99,6 +100,8 @@ func run() error {
 		if err := a.OpenEvents(eventsPath); err != nil {
 			log.Warn("cannot read activity log; starting a new one", "err", err)
 		}
+		// Notifications speak the language of the UI, like the tray.
+		a.Notifier = &notify.Desktop{Locale: a.Locale, Log: log}
 	}
 
 	switch flag.Arg(0) {
