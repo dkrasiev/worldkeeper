@@ -372,6 +372,19 @@ const (
 // local folder are restored to their original path when possible,
 // otherwise into the default saves folder.
 func (a *App) Restore(worldID, snapID string, mode RestoreMode) (string, error) {
+	return a.RestoreTo(worldID, snapID, mode, "")
+}
+
+// ErrLocationReplace means a folder was given for a restore that replaces
+// the world in place.
+var ErrLocationReplace = errors.New("replacing a world restores it in its own folder")
+
+// RestoreTo is Restore into the saves folder saves: a copy of a local world,
+// or a world without a local folder. Empty saves keeps Restore's choice.
+// The backups stay under the world's id, also when the world lands in
+// another location: another computer sharing the backup storage may still
+// have the world where it was.
+func (a *App) RestoreTo(worldID, snapID string, mode RestoreMode, saves string) (string, error) {
 	ix, err := a.Snapshots().Get(worldID)
 	if err != nil {
 		return "", err
@@ -380,18 +393,37 @@ func (a *App) Restore(worldID, snapID string, mode RestoreMode) (string, error) 
 	if err != nil {
 		return "", err
 	}
-	dest, err := a.restore(worldID, snapID, mode, j)
+	dest, err := a.restore(worldID, snapID, mode, saves, j)
 	a.jobs.finish(j, err, func(j *Job) { j.Path = dest })
 	return dest, err
 }
 
-func (a *App) restore(worldID, snapID string, mode RestoreMode, j *Job) (string, error) {
+func (a *App) restore(worldID, snapID string, mode RestoreMode, saves string, j *Job) (string, error) {
 	ix, err := a.Snapshots().Get(worldID)
 	if err != nil {
 		return "", err
 	}
+	if saves != "" {
+		if mode == RestoreReplace {
+			return "", ErrLocationReplace
+		}
+		if saves, err = savesDir(saves); err != nil {
+			return "", err
+		}
+	}
 	w, err := a.find(worldID)
 	switch {
+	case errors.Is(err, ErrWorldNotFound) && saves != "":
+		folder := ix.World.Folder
+		if folder == "" {
+			folder = worldID
+		}
+		dest := uniquePath(filepath.Join(saves, folder))
+		return dest, a.extractInto(ix, snapID, dest, j)
+	case err == nil && mode == RestoreCopy && saves != "" && !discovery.SamePath(a.Env, saves, w.SavesDir):
+		// Another location lists the copy on its own, under the world's name.
+		dest := uniquePath(filepath.Join(saves, w.Folder))
+		return dest, a.extractInto(ix, snapID, dest, j)
 	case errors.Is(err, ErrWorldNotFound):
 		dest := ix.World.Path
 		if dest == "" || !dirExists(filepath.Dir(dest)) || exists(dest) {

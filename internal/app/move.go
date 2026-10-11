@@ -163,25 +163,6 @@ func (a *App) move(w discovery.World, loc discovery.Location, known bool, j *Job
 	return newID, nil
 }
 
-// relink files an archived world's snapshots under the id of the folder it
-// was just restored to, so the restored world and its backups belong
-// together again. It leaves them alone if that id has snapshots of its own.
-func (a *App) relink(ix snapshot.Index, dest string) {
-	loc, known := a.locate(filepath.Dir(dest))
-	if !known {
-		a.addSavesDir(loc.Saves)
-	}
-	folder := filepath.Base(dest)
-	newID := discovery.WorldID(loc.Source, folder)
-	if newID == ix.World.ID {
-		return
-	}
-	ref := snapshot.WorldRef{ID: newID, Name: ix.World.Name, Folder: folder, Source: loc.Source, SourceLabel: loc.Label, Path: dest}
-	if err := a.Snapshots().Rekey(ix.World.ID, ref); err != nil {
-		a.Log.Warn("restored world and its backups stay apart", "world", newID, "backups", ix.World.ID, "err", err)
-	}
-}
-
 // rename is os.Rename; tests replace it to take the copy path.
 var rename = os.Rename
 
@@ -223,7 +204,7 @@ func moveDir(src, dst string, progress snapshot.Progress) error {
 func copyDir(src, dst string, progress snapshot.Progress) error {
 	var total, done int64
 	err := filepath.WalkDir(src, func(p string, d fs.DirEntry, err error) error {
-		if err == nil && d.Type().IsRegular() {
+		if err == nil && d.Type().IsRegular() && p != filepath.Join(src, "session.lock") {
 			if fi, err := d.Info(); err == nil {
 				total += fi.Size()
 			}
@@ -271,4 +252,17 @@ func copyFile(src, dst string) (int64, error) {
 		err = cerr
 	}
 	return n, err
+}
+
+// extractInto restores a snapshot into a folder the user picked, and adds
+// that folder to the extra saves folders if Worldkeeper does not look
+// there yet, so the restored world is found.
+func (a *App) extractInto(ix snapshot.Index, snapID, dest string, j *Job) error {
+	if err := a.extract(ix, snapID, dest, a.jobs.progress(j, PhaseRestore)); err != nil {
+		return err
+	}
+	if _, known := a.locate(filepath.Dir(dest)); !known {
+		a.addSavesDir(filepath.Dir(dest))
+	}
+	return nil
 }
