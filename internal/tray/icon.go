@@ -7,43 +7,16 @@ import (
 	"image/color"
 	"image/png"
 	"runtime"
+
+	"github.com/dkrasiev/worldkeeper/internal/icon"
 )
 
-// The icon is a pixel-art grass block drawn in code, so no image assets
-// need to be shipped. The warning variant adds a red dot.
+// The tray icon is the grass block from internal/icon. The warning variant
+// adds a red dot.
 var (
-	grass     = color.RGBA{0x5d, 0x9e, 0x3a, 0xff}
-	grassDark = color.RGBA{0x4a, 0x80, 0x2c, 0xff}
-	dirt      = color.RGBA{0x86, 0x60, 0x43, 0xff}
-	dirtDark  = color.RGBA{0x6b, 0x4b, 0x33, 0xff}
-	alert     = color.RGBA{0xe5, 0x39, 0x35, 0xff}
-	outline   = color.RGBA{0xff, 0xff, 0xff, 0xff}
+	alert   = color.RGBA{0xe5, 0x39, 0x35, 0xff}
+	outline = color.RGBA{0xff, 0xff, 0xff, 0xff}
 )
-
-// block draws the 16×16 grass block.
-func block() *image.RGBA {
-	img := image.NewRGBA(image.Rect(0, 0, 16, 16))
-	for y := 0; y < 16; y++ {
-		for x := 0; x < 16; x++ {
-			noise := (x*7 + y*13) % 5
-			var c color.RGBA
-			switch {
-			case y < 4 || (y < 6 && (x*3+y)%4 == 0):
-				c = grass
-				if noise == 0 {
-					c = grassDark
-				}
-			default:
-				c = dirt
-				if noise < 2 {
-					c = dirtDark
-				}
-			}
-			img.SetRGBA(x, y, c)
-		}
-	}
-	return img
-}
 
 // withAlert puts a red dot with a light rim in the bottom-right corner.
 func withAlert(src *image.RGBA) *image.RGBA {
@@ -63,18 +36,6 @@ func withAlert(src *image.RGBA) *image.RGBA {
 		}
 	}
 	return img
-}
-
-// scale enlarges with nearest neighbour to keep pixel-art edges crisp.
-func scale(src *image.RGBA, factor int) *image.RGBA {
-	b := src.Bounds()
-	dst := image.NewRGBA(image.Rect(0, 0, b.Dx()*factor, b.Dy()*factor))
-	for y := 0; y < dst.Bounds().Dy(); y++ {
-		for x := 0; x < dst.Bounds().Dx(); x++ {
-			dst.SetRGBA(x, y, src.RGBAAt(x/factor, y/factor))
-		}
-	}
-	return dst
 }
 
 func encodePNG(img image.Image) []byte {
@@ -112,9 +73,9 @@ func encodeICO(pngData []byte, size int) []byte {
 // icons returns the normal and warning icons in the format the platform's
 // tray expects.
 func icons() (normal, warning []byte) {
-	base := block()
+	base := icon.Block()
 	if runtime.GOOS == "windows" {
-		return encodeICO(encodePNG(scale(base, 2)), 32), encodeICO(encodePNG(scale(withAlert(base), 2)), 32)
+		return encodeICO(encodePNG(icon.Scale(base, 2)), 32), encodeICO(encodePNG(icon.Scale(withAlert(base), 2)), 32)
 	}
-	return encodePNG(scale(base, 4)), encodePNG(scale(withAlert(base), 4))
+	return encodePNG(icon.Scale(base, 4)), encodePNG(icon.Scale(withAlert(base), 4))
 }

@@ -21,9 +21,24 @@ See the [roadmap](ROADMAP.md) for what is planned next.
 
 ## Install
 
-Download the archive for your OS from [Releases](https://github.com/dkrasiev/worldkeeper/releases), unpack it, and run `worldkeeper`. On the first start your browser opens the UI at `http://127.0.0.1:25599`.
+Download the file for your system from [Releases](https://github.com/dkrasiev/worldkeeper/releases):
 
-> The Windows binary is not code-signed, so SmartScreen may warn you the first time you run it. Click "More info" and then "Run anyway", or build it yourself from source.
+| System | File |
+|---|---|
+| Windows (most PCs) | `windows_amd64.zip` |
+| Windows on ARM | `windows_arm64.zip` |
+| macOS (Apple Silicon and Intel) | `macOS.zip`: the app |
+| macOS, command line only | `darwin_arm64.tar.gz` (Apple Silicon) / `darwin_amd64.tar.gz` (Intel) |
+| Linux | `linux_amd64.tar.gz` / `linux_arm64.tar.gz` |
+
+**Windows and Linux:** unpack the archive and run `worldkeeper`. On the first start your browser opens the UI at `http://127.0.0.1:25599`.
+
+**macOS:** unzip `Worldkeeper_<version>_macOS.zip`, move **Worldkeeper.app** to Applications, and open it. It then shows up in Launchpad and Spotlight, and it lives in the menu bar only, with no Dock icon. On the first start your browser opens the UI at `http://127.0.0.1:25599`. The command line is inside the app: `/Applications/Worldkeeper.app/Contents/MacOS/worldkeeper list`.
+
+**The programs are not signed** (macOS signing is tracked in [#23](https://github.com/dkrasiev/worldkeeper/issues/23)), so the system warns on the first start:
+
+- **Windows:** SmartScreen may warn you the first time you run it. Click "More info" and then "Run anyway", or build it yourself from source.
+- **macOS:** the first time, right-click (or Control-click) Worldkeeper in Applications, choose **Open**, then **Open** again. On macOS 15 Sequoia and later, open it once, then go to **System Settings → Privacy & Security**, click **Open Anyway** next to the message about Worldkeeper, and confirm. After that it opens normally. For the command-line archives, clear the quarantine flag instead: `xattr -d com.apple.quarantine ./worldkeeper`.
 
 ### Tray icon
 
@@ -46,14 +61,14 @@ When a world's backup fails, Worldkeeper shows a desktop notification: a toast o
 
 ### Updates
 
-Worldkeeper checks for a new release on start and then once a day. When one is out, the web UI shows a banner and the tray menu gets a **Download version …** item. It only tells you; to update, download the new archive and replace the program with it. The check is a single request to the GitHub API for the latest release, and nothing about you or your worlds is sent. Turn it off under **Settings → Check for new versions once a day**; **Check now** next to it still works. Development builds never check.
+Worldkeeper checks for a new release on start and then once a day. When one is out, the web UI shows a banner and the tray menu gets a **Download version …** item. It only tells you; to update, download the new archive and replace the program with it (on macOS, Worldkeeper.app in Applications). The check is a single request to the GitHub API for the latest release, and nothing about you or your worlds is sent. Turn it off under **Settings → Check for new versions once a day**; **Check now** next to it still works. Development builds never check.
 
 **Test builds.** On Windows x64, **Settings → Offer updates → Test builds** also offers the newest build of the `develop` branch, as soon as a change is merged there. These builds are for trying out what comes next and can have bugs, backups included. **Download** then fetches the build itself. Switch back to **Releases** any time; you are offered the next release once it is out. Under **Branch** you can follow a pull request's branch instead of `develop`, while the pull request is open; once it is merged or closed you get `develop`'s builds again. **Test builds to download** lists the last five builds of `develop` and the latest build of each open pull request, each with its own download link.
 
 To start Worldkeeper with your computer:
 
 - **Windows:** put a shortcut to `worldkeeper.exe` in `shell:startup`.
-- **macOS:** add it under System Settings → General → Login Items.
+- **macOS:** add Worldkeeper from Applications under System Settings → General → Login Items (**Open at Login**, the **+** button).
 - **Linux:** use a systemd user service or your desktop's autostart.
 
 ## Restic storage (optional)
@@ -130,9 +145,13 @@ Plural entries use the CLDR categories (`one`, `few`, `many`, `other`, …) that
 | `internal/secrets` | Keeps the restic password in the OS credential store |
 | `internal/app` | Backup and restore logic, auto-backup watcher, activity feed |
 | `internal/api` | Local HTTP API (loopback only, token protected) and the embedded UI |
+| `internal/icon` | The grass-block icon, drawn in code, for the tray and the macOS app |
+| `tools/macapp` | Packs the macOS release build into `Worldkeeper.app` and zips it |
 | `web/` | React + Vite UI; translations in `web/src/i18n/` |
 
 **Dev builds.** Every pull request and every push to `develop` gets a Windows x64 test build (`worldkeeper.exe`, versioned after the next minor release and the branch, like `0.3.0-develop.202610111530.abc1234` or `0.3.0-feat-autostart.202610111530.abc1234`), made once per commit. Test builds are published as pre-releases anyone can download: `dev` is the newest build of `develop`, `dev-<version>` keeps its last five builds, and `dev-<branch>` is the latest build of an open pull request (deleted when the pull request closes). Builds of forks and Dependabot pull requests stay in the *Dev build* run in the [Actions tab](https://github.com/dkrasiev/worldkeeper/actions/workflows/dev-build.yml), under *Artifacts*: you need to be signed in to GitHub, and they are kept for 14 days. Dev builds are for testing and are not releases.
+
+**macOS app.** Pull requests that change the packaging (`.goreleaser.yaml`, `tools/macapp`, the icon) also build `Worldkeeper.app` on a Mac, check it and start it once, in the [*macOS app* workflow](https://github.com/dkrasiev/worldkeeper/actions/workflows/macos-app.yml). The zip is under *Artifacts* of that run, kept for 14 days.
 
 ### Pull requests and commits
 
@@ -147,7 +166,7 @@ Pull requests are squash-merged: each one becomes a single commit on `develop`, 
 
 ### Releasing
 
-Pushing a `v*` tag builds the release: GoReleaser makes the archives and the GitHub release, and opens the winget pull request if the `WINGET_TOKEN` secret is set. The tag can be on any commit.
+Pushing a `v*` tag builds the release: GoReleaser makes the archives, `Worldkeeper.app` for macOS (a universal binary, bundled and zipped by `tools/macapp`), and the GitHub release, and opens the winget pull request if the `WINGET_TOKEN` secret is set. The tag can be on any commit.
 
 **Branches.** Pull requests go into `develop`, the default branch. `main` holds the latest release. A release fast-forwards `main` to `develop` and is never merged, so both branches keep the same commits (pull requests are squash-merged, and merging `develop` into `main` would squash a whole release into one commit).
 

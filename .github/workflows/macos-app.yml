@@ -1,0 +1,114 @@
+name: macOS app
+
+# Builds Worldkeeper.app the way a release does (a GoReleaser snapshot on a
+# Mac; nothing is published) for pull requests that change the packaging,
+# then checks the bundle: signature, Info.plist, universal binary, icon, and
+# that it starts through LaunchServices (like a double-click in Finder) as a
+# menu bar app without a Dock icon. The zip is kept as an artifact, to try
+# the app on a Mac.
+on:
+  pull_request:
+    paths:
+      - .goreleaser.yaml
+      - .github/workflows/macos-app.yml
+      - .github/workflows/release.yml
+      - tools/macapp/**
+      - internal/icon/**
+      - cmd/worldkeeper/launch*.go
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: macos-app-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  bundle:
+    runs-on: macos-latest # cgo for the menu bar icon, codesign, lipo
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # GoReleaser derives the version from tags
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - uses: pnpm/action-setup@v6
+        with:
+          package_json_file: web/package.json
+          version: 10
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      # The newest tag can be a test build's ("dev", "dev-<branch>"), which
+      # is not a version: take the last release tag.
+      - name: Release tag
+        run: echo "GORELEASER_CURRENT_TAG=$(git describe --tags --abbrev=0 --match 'v*')" >> "$GITHUB_ENV"
+
+      - uses: goreleaser/goreleaser-action@v7
+        with:
+          version: "~> v2"
+          args: release --snapshot --clean --skip=publish
+
+      - name: Check the bundle
+        run: |
+          set -euo pipefail
+          zip=$(ls dist/Worldkeeper_*_macOS.zip)
+          echo "ZIP=${zip}" >> "$GITHUB_ENV"
+          grep -F "$(basename "$zip")" dist/checksums.txt
+          # Unzip like Finder's Archive Utility would, outside dist.
+          ditto -x -k "$zip" "$RUNNER_TEMP/app"
+          app="$RUNNER_TEMP/app/Worldkeeper.app"
+          echo "APP=${app}" >> "$GITHUB_ENV"
+          plist="$app/Contents/Info.plist"
+
+          codesign --verify --strict --verbose=2 "$app"
+          codesign --display --verbose=2 "$app" 2>&1 | grep -E 'Identifier|Format|Signature'
+          plutil -lint "$plist"
+          test "$(plutil -extract CFBundleIdentifier raw "$plist")" = io.github.dkrasiev.worldkeeper
+          test "$(plutil -extract LSUIElement raw "$plist")" = true
+          echo "version $(plutil -extract CFBundleShortVersionString raw "$plist")"
+
+          archs=$(lipo -archs "$app/Contents/MacOS/worldkeeper")
+          echo "architectures: ${archs}"
+          [[ " ${archs} " == *" arm64 "* && " ${archs} " == *" x86_64 "* ]]
+          "$app/Contents/MacOS/worldkeeper" version
+
+          iconutil -c iconset -o "$RUNNER_TEMP/Worldkeeper.iconset" "$app/Contents/Resources/Worldkeeper.icns"
+          ls "$RUNNER_TEMP/Worldkeeper.iconset"
+          test -f "$RUNNER_TEMP/Worldkeeper.iconset/icon_16x16.png"
+          test -f "$RUNNER_TEMP/Worldkeeper.iconset/icon_512x512@2x.png"
+
+      - name: Start it like Finder does
+        run: |
+          set -euo pipefail
+          open -a "$APP" --args -no-browser
+          code=""
+          for _ in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:25599/api/overview || true)
+            [ "$code" = 401 ] && break
+            sleep 1
+          done
+          echo "web UI answered ${code}"
+          test "$code" = 401
+          # LSUIElement: a menu bar app, no Dock icon ("Foreground" would have one).
+          asn=$(lsappinfo find bundleid=io.github.dkrasiev.worldkeeper)
+          info=$(lsappinfo info "$asn")
+          echo "$info"
+          grep -q '"UIElement"' <<< "$info"
+          pkill -f 'Worldkeeper.app/Contents/MacOS/worldkeeper'
+
+      - name: Log
+        if: always()
+        run: cat "$HOME/Library/Application Support/worldkeeper/worldkeeper.log" || true
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Worldkeeper-macOS-${{ github.event.pull_request.head.sha || github.sha }}
+          path: ${{ env.ZIP }}
+          if-no-files-found: error
+          retention-days: 14
