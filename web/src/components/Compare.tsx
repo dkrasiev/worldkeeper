@@ -27,16 +27,18 @@ export function SaveComparison({
 
   // The live world's progress changes whenever the game saves, which also
   // moves lastPlayed. The previous lists stay up while the new ones load.
+  // Both sides are the save's player (see compareWorlds).
+  const player = save.playerUuid;
   useEffect(() => {
     let cancelled = false;
-    Promise.all([api.snapshotAdvancements(id, snapId), api.advancements(id)]).then(
+    Promise.all([api.snapshotAdvancements(id, snapId, player), api.advancements(id, player)]).then(
       (p) => !cancelled && setProgress(p),
       () => !cancelled && setProgress(undefined), // the counts still compare
     );
     return () => {
       cancelled = true;
     };
-  }, [id, snapId, now.lastPlayed]);
+  }, [id, snapId, player, now.lastPlayed]);
 
   const d = useMemo(() => compareWorlds(save, now, progress?.[0], progress?.[1]), [save, now, progress]);
 

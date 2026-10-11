@@ -256,18 +256,67 @@ func TestSnapshotDetailsShowThePast(t *testing.T) {
 	}
 	testworld.WriteLevel(t, dir, testworld.Options{Name: "New name", LastPlayed: 2000})
 
-	d, err := f.app.SnapshotDetails("minecraft--w", old.ID)
+	d, err := f.app.SnapshotDetails("minecraft--w", old.ID, "")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if d.Info.Name != "Old name" || d.Advancements["minecraft:story/root"] != true {
 		t.Errorf("snapshot details = %q, %v", d.Info.Name, d.Advancements)
 	}
-	if cur, _ := f.app.Info("minecraft--w"); cur.Name != "New name" {
+	if cur, _ := f.app.Info("minecraft--w", ""); cur.Name != "New name" {
 		t.Errorf("current = %q", cur.Name)
 	}
-	if _, err := f.app.SnapshotDetails("minecraft--w", "nope"); !errors.Is(err, snapshot.ErrNotFound) {
+	if _, err := f.app.SnapshotDetails("minecraft--w", "nope", ""); !errors.Is(err, snapshot.ErrNotFound) {
 		t.Errorf("unknown snapshot: %v", err)
+	}
+}
+
+// The world page and the save page can show any player, named from the
+// launcher's usercache.json.
+func TestPlayerSwitchAndNames(t *testing.T) {
+	f := setup(t)
+	const owner, guest = "00000000-0000-4000-8000-000000000001", "00000000-0000-4000-8000-000000000002"
+	testworld.Create(t, f.saves, "w", testworld.Options{Owner: owner, Players: []testworld.Player{
+		{UUID: owner, PlayTicks: 200, XpLevel: 3},
+		{UUID: guest, PlayTicks: 2000, XpLevel: 9, Advancements: []string{"minecraft:story/root"}},
+	}})
+	cache := `[{"name":"Steve","uuid":"` + owner + `","expiresOn":"2026-11-11 10:00:00 +0000"}]`
+	if err := os.WriteFile(filepath.Join(filepath.Dir(f.saves), "usercache.json"), []byte(cache), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	snap, err := f.app.Backup("minecraft--w", BackupOptions{Kind: snapshot.KindManual})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, get := range []func(player string) (worldinfo.Info, map[string]any, error){
+		func(player string) (worldinfo.Info, map[string]any, error) {
+			d, err := f.app.Info("minecraft--w", player)
+			adv, _ := f.app.Advancements("minecraft--w", player)
+			return d.Info, adv, err
+		},
+		func(player string) (worldinfo.Info, map[string]any, error) {
+			d, err := f.app.SnapshotDetails("minecraft--w", snap.ID, player)
+			return d.Info, d.Advancements, err
+		},
+	} {
+		info, adv, err := get("")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if info.PlayerUUID != owner || info.Player.XPLevel != 3 || len(adv) != 0 {
+			t.Errorf("main player = %s, xp %d, advancements %v", info.PlayerUUID, info.Player.XPLevel, adv)
+		}
+		if len(info.Players) != 2 || info.Players[0].Name != "Steve" || info.Players[1].Name != "" {
+			t.Errorf("players = %+v", info.Players)
+		}
+		info, adv, err = get(guest)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if info.PlayerUUID != guest || info.Player.XPLevel != 9 || adv["minecraft:story/root"] != true {
+			t.Errorf("guest = %s, xp %d, advancements %v", info.PlayerUUID, info.Player.XPLevel, adv)
+		}
 	}
 }
 

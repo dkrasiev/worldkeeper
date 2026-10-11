@@ -160,6 +160,8 @@ export const ru: Dict = {
   "info.size": "Размер на диске",
   "info.loaders": "Загрузчики",
   "info.player": "Игрок",
+  "info.owner": "{name} (владелец)",
+  "info.choosePlayer": "Показать другого игрока",
   "info.dimension": "Измерение",
   "info.position": "Координаты",
   "info.health": "Здоровье",

@@ -20,7 +20,8 @@ export function WorldDetail({ id, onBack }: { id: string; onBack: () => void }) 
   const { t, errorText } = useI18n();
   const f = useFormat();
   const title = useSnapTitle();
-  const info = useLoad(() => api.world(id), [id], 5000);
+  const [player, setPlayer] = useState<string>(); // undefined: the world's main player
+  const info = useLoad(() => api.world(id, player), [id, player], 5000);
   const snaps = useLoad(() => api.snapshots(id), [id], 5000);
   const [dialog, setDialog] = useState<Dialog>();
   const [notice, setNotice] = useState<{ ok: boolean; text: string }>();
@@ -136,10 +137,16 @@ export function WorldDetail({ id, onBack }: { id: string; onBack: () => void }) 
           </ul>
         </section>
 
-        {world && <WorldInfoPanel w={world} />}
+        {world && <WorldInfoPanel w={world} onPlayer={setPlayer} />}
       </div>
 
-      {world && <AdvancementsPanel load={() => api.advancements(id)} loadKey={id} earned={world.advancements} />}
+      {world && (
+        <AdvancementsPanel
+          load={() => api.advancements(id, world.playerUuid)}
+          loadKey={`${id}/${world.playerUuid ?? ""}`}
+          earned={world.advancements}
+        />
+      )}
 
       {dialog?.type === "save" && (
         <SaveDialog

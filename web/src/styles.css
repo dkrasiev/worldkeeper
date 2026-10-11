@@ -642,6 +642,30 @@ label.check input {
   display: none;
 }
 
+/* world info: whose player data is shown */
+.player-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  margin: 20px 0 8px;
+}
+.player-head h3 {
+  margin: 0;
+}
+.player-head .mono {
+  overflow-wrap: anywhere;
+}
+select.player-select {
+  font: inherit;
+  max-width: 100%;
+  padding: 3px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+}
+
 /* language switcher */
 select.lang {
   font: inherit;

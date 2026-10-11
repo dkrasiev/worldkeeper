@@ -17,9 +17,13 @@ export function SnapshotDetail({ id, snapId, onBack }: { id: string; snapId: str
   const { t, errorText } = useI18n();
   const f = useFormat();
   const title = useSnapTitle();
-  const world = useLoad(() => api.world(id), [id], 5000);
   const snaps = useLoad(() => api.snapshots(id), [id]);
-  const info = useLoad(() => api.snapshotInfo(id, snapId), [id, snapId]);
+  const [player, setPlayer] = useState<string>(); // undefined: the world's main player
+  const info = useLoad(() => api.snapshotInfo(id, snapId, player), [id, snapId, player]);
+  // The live world is read for the save's player, so the comparison is
+  // about one person on both sides.
+  const shown = info.data?.playerUuid;
+  const world = useLoad(() => api.world(id, shown), [id, shown], 5000);
   const [dialog, setDialog] = useState<"load" | "delete">();
   const [notice, setNotice] = useState<{ ok: boolean; text: string }>();
 
@@ -102,10 +106,10 @@ export function SnapshotDetail({ id, snapId, onBack }: { id: string; snapId: str
       ) : (
         <>
           {world.data && !missing && <SaveComparison id={id} snapId={snapId} save={info.data} now={world.data} />}
-          <WorldInfoPanel w={info.data} title={t("snapshot.contents")} />
+          <WorldInfoPanel w={info.data} title={t("snapshot.contents")} onPlayer={setPlayer} />
           <AdvancementsPanel
-            load={() => api.snapshotAdvancements(id, snapId)}
-            loadKey={`${id}/${snapId}`}
+            load={() => api.snapshotAdvancements(id, snapId, info.data?.playerUuid)}
+            loadKey={`${id}/${snapId}/${info.data.playerUuid ?? ""}`}
             earned={info.data.advancements}
           />
         </>

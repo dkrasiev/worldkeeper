@@ -41,13 +41,17 @@ const time = (iso: string) => {
 /**
  * compareWorlds lists what changed from a save to the world now. The
  * progress maps name the advancements gained and lost; without them only
- * the counts are compared.
+ * the counts are compared. Play time and advancements are a player's, so
+ * they are compared only when both sides describe the same player (the
+ * live world may not have the save's player, or not yet be reloaded for it).
  */
 export function compareWorlds(save: WorldData, now: WorldData, saveAdv?: Progress, nowAdv?: Progress): WorldDiff {
   const saved = time(save.lastPlayed);
   const played = time(now.lastPlayed);
+  const samePlayer = save.playerUuid === now.playerUuid;
   // Play time only grows, so it tells the order even when the dates do not.
-  const longer = !!save.stats && !!now.stats && save.stats.playTimeSeconds > now.stats.playTimeSeconds;
+  const longer =
+    samePlayer && !!save.stats && !!now.stats && save.stats.playTimeSeconds > now.stats.playTimeSeconds;
   const diff: WorldDiff = {
     saveIsNewer: (saved !== undefined && played !== undefined && saved > played) || longer,
     regions: [],
@@ -58,7 +62,7 @@ export function compareWorlds(save: WorldData, now: WorldData, saveAdv?: Progres
     diff.version = { from: save.gameVersion, to: now.gameVersion };
   }
 
-  if (save.stats || now.stats) {
+  if (samePlayer && (save.stats || now.stats)) {
     const from = save.stats?.playTimeSeconds ?? 0;
     const to = now.stats?.playTimeSeconds ?? 0;
     if (from !== to) diff.playTimeSeconds = { from, to };
@@ -66,13 +70,13 @@ export function compareWorlds(save: WorldData, now: WorldData, saveAdv?: Progres
 
   let gained: string[] = [];
   let lost: string[] = [];
-  if (saveAdv && nowAdv) {
+  if (samePlayer && saveAdv && nowAdv) {
     const a = done(saveAdv);
     const b = done(nowAdv);
     gained = [...b].filter((id) => !a.has(id)).sort();
     lost = [...a].filter((id) => !b.has(id)).sort();
   }
-  if (save.advancements !== now.advancements || gained.length > 0 || lost.length > 0) {
+  if (samePlayer && (save.advancements !== now.advancements || gained.length > 0 || lost.length > 0)) {
     diff.advancements = { from: save.advancements, to: now.advancements, gained, lost };
   }
 

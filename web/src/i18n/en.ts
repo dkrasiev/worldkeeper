@@ -156,6 +156,8 @@ export const en = {
   "info.size": "Size on disk",
   "info.loaders": "Loaders",
   "info.player": "Player",
+  "info.owner": "{name} (owner)",
+  "info.choosePlayer": "Show another player",
   "info.dimension": "Dimension",
   "info.position": "Position",
   "info.health": "Health",

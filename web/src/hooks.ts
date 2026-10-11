@@ -8,21 +8,26 @@ export interface Loadable<T> {
 }
 
 // useLoad fetches on mount and every `pollMs` (if set). Polling keeps
-// the "in game" status live without websockets.
+// the "in game" status live without websockets. When deps change (e.g. the
+// chosen player) the old data stays until the new arrives, so the page does
+// not blank; answers to requests made before the change are dropped.
 export function useLoad<T>(fn: () => Promise<T>, deps: unknown[], pollMs?: number): Loadable<T> {
   const [state, setState] = useState<{ data?: T; error?: Error; loading: boolean }>({ loading: true });
   const fnRef = useRef(fn);
   fnRef.current = fn;
+  const gen = useRef(0);
 
   const reload = useCallback(() => {
+    const g = gen.current;
     fnRef.current().then(
-      (data) => setState({ data, loading: false }),
-      (error: Error) => setState((s) => ({ ...s, error, loading: false })),
+      (data) => g === gen.current && setState({ data, loading: false }),
+      (error: Error) => g === gen.current && setState((s) => ({ ...s, error, loading: false })),
     );
   }, []);
 
   useEffect(() => {
-    setState({ loading: true });
+    gen.current++;
+    setState((s) => ({ ...s, loading: true }));
     reload();
     if (!pollMs) return;
     const t = setInterval(reload, pollMs);

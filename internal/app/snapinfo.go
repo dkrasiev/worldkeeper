@@ -1,6 +1,7 @@
 package app
 
 import (
+	"path/filepath"
 	"sync"
 
 	"github.com/dkrasiev/worldkeeper/internal/worldinfo"
@@ -10,6 +11,7 @@ import (
 type SnapshotDetails struct {
 	Info         worldinfo.Info `json:"info"`
 	Advancements map[string]any `json:"-"`
+	savesDir     string         // where the world was saved from, for player names
 }
 
 // snapshotCache keeps parsed snapshots: they never change once written, and
@@ -38,11 +40,12 @@ func (c *snapshotCache) put(key string, d SnapshotDetails) {
 }
 
 // SnapshotDetails reads world info and advancement progress from a snapshot
-// without restoring it.
-func (a *App) SnapshotDetails(worldID, snapID string) (SnapshotDetails, error) {
+// without restoring it. player is chosen as in Info.
+func (a *App) SnapshotDetails(worldID, snapID, player string) (SnapshotDetails, error) {
 	store := a.Snapshots()
-	key := a.Config.Get().Engine + "\x00" + worldID + "\x00" + snapID
+	key := a.Config.Get().Engine + "\x00" + worldID + "\x00" + snapID + "\x00" + player
 	if d, ok := a.snapCache.get(key); ok {
+		a.namePlayers(&d.Info, d.savesDir)
 		return d, nil
 	}
 	ix, err := store.Get(worldID)
@@ -59,11 +62,15 @@ func (a *App) SnapshotDetails(worldID, snapID string) (SnapshotDetails, error) {
 	if folder == "" {
 		folder = worldID
 	}
-	info, err := worldinfo.ReadFS(fsys, folder)
+	info, err := worldinfo.ReadFS(fsys, folder, player)
 	if err != nil {
 		return SnapshotDetails{}, err
 	}
-	d := SnapshotDetails{Info: info, Advancements: worldinfo.AdvancementProgressFS(fsys)}
+	d := SnapshotDetails{Info: info, Advancements: worldinfo.AdvancementProgressFS(fsys, player)}
+	if ix.World.Path != "" {
+		d.savesDir = filepath.Dir(ix.World.Path) // names come from the launcher the world was saved from
+	}
 	a.snapCache.put(key, d)
+	a.namePlayers(&d.Info, d.savesDir)
 	return d, nil
 }

@@ -3,11 +3,16 @@ package testworld
 
 import (
 	"compress/gzip"
+	"encoding/binary"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
 	"image"
 	"image/color"
 	"image/png"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/Tnze/go-mc/nbt"
@@ -29,6 +34,7 @@ type player struct {
 	Health    float32   `nbt:"Health"`
 	FoodLevel int32     `nbt:"foodLevel"`
 	XpLevel   int32     `nbt:"XpLevel"`
+	UUID      []int32   `nbt:"UUID,omitempty"`
 }
 
 type data struct {
@@ -64,6 +70,67 @@ type Options struct {
 	// data/minecraft/*.dat, per-player files under players/, and the
 	// overworld under dimensions/minecraft/overworld/.
 	Layout26 bool
+	// Players replaces the single player's files (named "0000") with files
+	// named by each player's UUID. Owner is the UUID level.dat records as
+	// the world's owner: Data.Player.UUID, or singleplayer_uuid in 26.x.
+	Players []Player
+	Owner   string
+}
+
+// Player is one player's data in a world with Options.Players.
+type Player struct {
+	UUID         string
+	PlayTicks    int64
+	XpLevel      int32
+	Advancements []string // completed
+}
+
+// writePlayers writes data, stats and advancements for each player into
+// the given folders, relative to dir.
+func writePlayers(t testing.TB, dir string, o Options, dataDir, statsDir, advDir string) {
+	t.Helper()
+	for _, p := range o.Players {
+		writeNBT(t, filepath.Join(dir, dataDir, p.UUID+".dat"), player{
+			Pos: []float64{float64(p.XpLevel), 64, 0}, Dimension: "minecraft:overworld", Health: 20, FoodLevel: 20,
+			XpLevel: p.XpLevel, UUID: uuidInts(t, p.UUID),
+		})
+		stats := fmt.Sprintf(`{"stats":{"minecraft:custom":{"minecraft:play_time":%d}},"DataVersion":4189}`, p.PlayTicks)
+		must(t, os.WriteFile(filepath.Join(dir, statsDir, p.UUID+".json"), []byte(stats), 0o644))
+		advs := map[string]any{"DataVersion": 4189}
+		for _, id := range p.Advancements {
+			advs[id] = map[string]any{"criteria": map[string]string{"x": "2026-10-05 12:00:00 +0000"}, "done": true}
+		}
+		b, err := json.Marshal(advs)
+		must(t, err)
+		must(t, os.WriteFile(filepath.Join(dir, advDir, p.UUID+".json"), b, 0o644))
+	}
+}
+
+// owner returns the owner's entry in o.Players, if any.
+func (o Options) owner() (Player, bool) {
+	for _, p := range o.Players {
+		if p.UUID == o.Owner {
+			return p, true
+		}
+	}
+	return Player{}, false
+}
+
+// uuidInts encodes a UUID as the game's int array tag; nil for "".
+func uuidInts(t testing.TB, uuid string) []int32 {
+	t.Helper()
+	if uuid == "" {
+		return nil
+	}
+	b, err := hex.DecodeString(strings.ReplaceAll(uuid, "-", ""))
+	if err != nil || len(b) != 16 {
+		t.Fatalf("bad UUID %q", uuid)
+	}
+	out := make([]int32, 4)
+	for i := range out {
+		out[i] = int32(binary.BigEndian.Uint32(b[i*4:]))
+	}
+	return out
 }
 
 // Create writes a world folder with level.dat, icon, stats, advancements
@@ -94,6 +161,12 @@ func Create(t testing.TB, saves, folder string, o Options) string {
 		"DIM-1/region/r.0.0.mca": "nether region",
 		"stats/0000.json":        `{"stats":{"minecraft:custom":{"minecraft:play_time":72000,"minecraft:deaths":3,"minecraft:mob_kills":42,"minecraft:walk_one_cm":150000,"minecraft:sprint_one_cm":50000,"minecraft:jump":10}},"DataVersion":4189}`,
 		"advancements/0000.json": `{"minecraft:story/root":{"done":true},"minecraft:story/mine_stone":{"done":true},"minecraft:recipes/misc/x":{"done":true},"minecraft:story/smelt_iron":{"criteria":{"iron":"2026-10-05 12:00:00 +0000"},"done":false},"DataVersion":4189}`,
+	}
+	if len(o.Players) > 0 {
+		delete(files, "stats/0000.json")
+		delete(files, "advancements/0000.json")
+		must(t, os.MkdirAll(filepath.Join(dir, "playerdata"), 0o755))
+		writePlayers(t, dir, o, "playerdata", "stats", "advancements")
 	}
 	for name, content := range files {
 		must(t, os.WriteFile(filepath.Join(dir, filepath.FromSlash(name)), []byte(content), 0o644))
@@ -148,8 +221,12 @@ func WriteLevel(t testing.TB, dir string, o Options) {
 			Health:    18,
 			FoodLevel: 17,
 			XpLevel:   30,
+			UUID:      uuidInts(t, o.Owner),
 		},
 	}}
+	if p, ok := o.owner(); ok {
+		l.Data.Player.XpLevel = p.XpLevel
+	}
 
 	f, err := os.Create(filepath.Join(dir, "level.dat"))
 	must(t, err)
@@ -188,6 +265,7 @@ type data26 struct {
 	DifficultySettings difficulty26 `nbt:"difficulty_settings"`
 	Spawn              spawn26      `nbt:"spawn"`
 	ServerBrands       []string     `nbt:"ServerBrands"`
+	SingleplayerUUID   []int32      `nbt:"singleplayer_uuid,omitempty"`
 }
 
 type wrapped[T any] struct {
@@ -221,19 +299,25 @@ func create26(t testing.TB, dir string, o Options) string {
 		DifficultySettings: difficulty26{Difficulty: "hard", Hardcore: 1},
 		Spawn:              spawn26{Dimension: "minecraft:overworld", Pos: []int32{224, 66, -160}},
 		ServerBrands:       []string{"vanilla"},
+		SingleplayerUUID:   uuidInts(t, o.Owner),
 	}})
 	writeNBT(t, filepath.Join(dir, "data", "minecraft", "world_gen_settings.dat"), wrapped[worldGen]{5023, worldGen{Seed: 2762118087573245665}})
 	writeNBT(t, filepath.Join(dir, "data", "minecraft", "game_rules.dat"), wrapped[map[string]int8]{5023, map[string]int8{"minecraft:keep_inventory": 1}})
 	writeNBT(t, filepath.Join(dir, "data", "minecraft", "weather.dat"), wrapped[weather26]{5023, weather26{Thundering: 1}})
-	writeNBT(t, filepath.Join(dir, "players", "data", "0000.dat"), player{
-		Pos: []float64{184.7, 64, -66.3}, Dimension: "minecraft:overworld", Health: 20, FoodLevel: 20, XpLevel: 7,
-	})
-
 	files := map[string]string{
 		"session.lock": "\u2603",
 		"dimensions/minecraft/overworld/region/r.0.0.mca": "overworld region",
 		"players/stats/0000.json":                         `{"stats":{"minecraft:custom":{"minecraft:play_time":36000,"minecraft:deaths":1}},"DataVersion":5023}`,
 		"players/advancements/0000.json":                  `{"minecraft:recipes/decorations/crafting_table":{"criteria":{"unlock_right_away":"2026-10-05 19:39:06 +0300"},"done":true},"minecraft:story/root":{"criteria":{"crafting_table":"2026-10-05 19:40:00 +0300"},"done":true},"minecraft:adventure/adventuring_time":{"criteria":{"minecraft:beach":"2026-10-05 19:46:33 +0300","minecraft:forest":"2026-10-05 19:40:08 +0300"},"done":false},"DataVersion":5023}`,
+	}
+	if len(o.Players) > 0 {
+		delete(files, "players/stats/0000.json")
+		delete(files, "players/advancements/0000.json")
+		writePlayers(t, dir, o, "players/data", "players/stats", "players/advancements")
+	} else {
+		writeNBT(t, filepath.Join(dir, "players", "data", "0000.dat"), player{
+			Pos: []float64{184.7, 64, -66.3}, Dimension: "minecraft:overworld", Health: 20, FoodLevel: 20, XpLevel: 7,
+		})
 	}
 	for name, content := range files {
 		must(t, os.WriteFile(filepath.Join(dir, filepath.FromSlash(name)), []byte(content), 0o644))

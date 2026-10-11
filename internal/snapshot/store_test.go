@@ -202,11 +202,11 @@ func TestOpenReadsWorldInfoFromZip(t *testing.T) {
 	}
 	defer closer.Close()
 
-	info, err := worldinfo.ReadFS(fsys, "w")
+	info, err := worldinfo.ReadFS(fsys, "w", "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	want, _ := worldinfo.Read(world)
+	want, _ := worldinfo.Read(world, "")
 	if info.Seed != want.Seed || info.Advancements != want.Advancements || info.Player == nil ||
 		len(info.Dimensions) != len(want.Dimensions) || info.GameVersion != "26.3" {
 		t.Errorf("from zip = %+v\nfrom dir = %+v", info, want)
