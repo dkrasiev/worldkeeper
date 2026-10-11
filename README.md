@@ -39,7 +39,7 @@ Download the file for your system from [Releases](https://github.com/dkrasiev/wo
 
 **macOS:** unzip `Worldkeeper_<version>_macOS.zip`, move **Worldkeeper.app** to Applications, and open it. It then shows up in Launchpad and Spotlight, and it lives in the menu bar only, with no Dock icon. On the first start your browser opens the UI at `http://127.0.0.1:25599`. The command line is inside the app: `/Applications/Worldkeeper.app/Contents/MacOS/worldkeeper list`.
 
-**The programs are not signed** (macOS signing is tracked in [#23](https://github.com/dkrasiev/worldkeeper/issues/23)), so the system warns on the first start:
+**The programs are not signed**, so the system warns on the first start:
 
 - **Windows:** SmartScreen may warn you the first time you run it. Click "More info" and then "Run anyway", or build it yourself from source.
 - **macOS:** the first time, right-click (or Control-click) Worldkeeper in Applications, choose **Open**, then **Open** again. On macOS 15 Sequoia and later, open it once, then go to **System Settings → Privacy & Security**, click **Open Anyway** next to the message about Worldkeeper, and confirm. After that it opens normally. For the command-line archives, clear the quarantine flag instead: `xattr -d com.apple.quarantine ./worldkeeper`.

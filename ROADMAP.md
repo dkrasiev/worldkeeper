@@ -32,11 +32,12 @@ Make what already shipped trustworthy before adding more.
 - [#19](https://github.com/dkrasiev/worldkeeper/issues/19) Scheduled restic prune and check
 - [#20](https://github.com/dkrasiev/worldkeeper/issues/20) Move saves between zip and restic storage
 - [#21](https://github.com/dkrasiev/worldkeeper/issues/21) Periodic restore test
-- [#23](https://github.com/dkrasiev/worldkeeper/issues/23) Decide on code signing and notarization
 - [#41](https://github.com/dkrasiev/worldkeeper/issues/41) Linux: desktop entry, icons and `.deb`/`.rpm` packages
 - [#80](https://github.com/dkrasiev/worldkeeper/issues/80) Recognize a world across computers and tell which copy is newer
 - [#81](https://github.com/dkrasiev/worldkeeper/issues/81) Sync chosen worlds between computers automatically
 - [#82](https://github.com/dkrasiev/worldkeeper/issues/82) Warn when a world is open on another computer, or needs a newer game
+- [#86](https://github.com/dkrasiev/worldkeeper/issues/86) Offer to install restic when it is missing
+- [#87](https://github.com/dkrasiev/worldkeeper/issues/87) Windows installer
 
 ## [Later](https://github.com/dkrasiev/worldkeeper/milestone/4)
 
@@ -50,8 +51,9 @@ Make what already shipped trustworthy before adding more.
 
 ## Not planned
 
-- **Bundling restic or writing a custom deduplicating format.** Saves stay plain zip files or a standard restic repository, so they can always be restored without Worldkeeper.
+- **Shipping restic with Worldkeeper, or a custom deduplicating format.** Worldkeeper does not come with restic; it only offers to install the official one, e.g. with winget (#86). Saves stay plain zip files or a standard restic repository, so they can always be restored without Worldkeeper.
 - **A hosted service, accounts, or telemetry.** Everything stays on your machine and your storage.
+- **Code signing and notarization.** A Windows code signing certificate and Apple's developer program cost money every year. The programs stay unsigned; the README shows how to start them the first time.
 
 ## Branches and releases
 
