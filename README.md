@@ -10,6 +10,7 @@ Automatic backups for Minecraft: Java Edition worlds. Worldkeeper saves a world 
 - **Backs up when you exit a world.** Worldkeeper watches each world's `session.lock`, which the game locks while the world is open. When you exit, it saves the world. If the world has not changed since the last backup, it skips the save.
 - **Catches up and retries.** On startup it backs up worlds you played while it was not running. If the backup folder is unreachable (NAS asleep, laptop away from home), it retries until it succeeds. Failures show up in the Activity tab and as a desktop notification.
 - **Named saves.** Click "Save now" before fighting the Ender Dragon. Rotation only removes automatic saves and never deletes named ones.
+- **Keeps yesterday, last week and last month.** Besides the newest automatic saves, Worldkeeper can keep one save per day, week and month, so an old state is still there after a long play session. See [Which automatic saves are kept](#which-automatic-saves-are-kept).
 - **Load any save.** You can replace the current world or load the save as a new world next to it, named "… (restored <date>)" so the game lists both. Before replacing, Worldkeeper makes a safety save of the current state, so every restore can be undone.
 - **Rename and delete worlds.** Renaming changes the name shown in the game; the folder keeps its name, so the world stays linked to its saves. Before deleting, Worldkeeper saves the world unless its latest state is already saved, so a deleted world can be loaded back.
 - **World info read from the files:** version, mode, difficulty, seed, in-game day, weather, spawn, player position, health and level, play time, deaths, mobs killed, distance travelled, advancements, size on disk, explored regions per dimension, data packs, game rules, and mod loaders.
@@ -100,11 +101,24 @@ Worlds are backed up from inside their folder, so a restore puts the world files
 
 Each world gets its own folder, named after the launcher and the world folder. If you reinstall your OS, point Worldkeeper at the same backup folder. Your worlds then show up under **Backups without a local world** and can be restored with one click.
 
+## Which automatic saves are kept
+
+After each save, Worldkeeper deletes the automatic saves of that world that none of these counts in **Settings → Automatic saves to keep per world** keeps:
+
+- **Newest:** the newest N saves (20 by default).
+- **Daily:** the last save of each of the N most recent days that have saves.
+- **Weekly:** the same for weeks, Monday to Sunday.
+- **Monthly:** the same for calendar months.
+
+A save stays if any count keeps it, and 0 turns a count off. For example, newest 5, daily 7, weekly 4, and monthly 6 keep the last five saves and the last save of each of the last seven days, four weeks, and six months you played in. Days without saves are skipped, so a week-long break does not use up the daily saves. Days, weeks, and months follow your computer's clock. These are the rules of restic's `forget --keep-last/--keep-daily/--keep-weekly/--keep-monthly`, and with restic storage Worldkeeper runs exactly that, limited to the world's automatic saves.
+
+Named saves and the save made before a world is deleted are never deleted automatically. The safety save made before a restore counts as an automatic save.
+
 ## Limitations
 
 - Java Edition only. Bedrock is not supported.
 - Switching between zip and restic does not migrate existing saves. Each storage keeps its own saves.
-- With zip storage, every save contains the whole world. Large worlds with many saves take a lot of space, so use restic storage or lower "Automatic saves to keep" in Settings.
+- With zip storage, every save contains the whole world. Large worlds with many saves take a lot of space, so use restic storage or keep fewer automatic saves in Settings.
 
 ## Development
 

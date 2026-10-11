@@ -78,10 +78,11 @@ type Store struct {
 	root func() string
 	mu   sync.Mutex // serializes all writes; backups are I/O bound anyway
 	now  func() time.Time
+	loc  *time.Location // calendar for daily, weekly and monthly retention
 }
 
 func NewStore(root func() string) *Store {
-	return &Store{root: root, now: time.Now}
+	return &Store{root: root, now: time.Now, loc: time.Local}
 }
 
 // Meta describes a snapshot being created.
@@ -183,11 +184,14 @@ func uniqueID(ix Index, base string) string {
 	return id
 }
 
-// Prune deletes the oldest automatic snapshots beyond keep.
+// Prune deletes the automatic snapshots that r does not keep.
 // Only kinds that rotate count; manual saves are never deleted by rotation.
-func (s *Store) Prune(worldID string, keep int) ([]string, error) {
+func (s *Store) Prune(worldID string, r Retention) ([]string, error) {
 	if err := checkName(worldID); err != nil {
 		return nil, err
+	}
+	if r.Empty() {
+		return nil, nil
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -196,13 +200,20 @@ func (s *Store) Prune(worldID string, keep int) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+	var times []time.Time
+	for _, snap := range ix.Snapshots {
+		if snap.Kind.Rotates() {
+			times = append(times, snap.CreatedAt)
+		}
+	}
+	keep := r.Keep(times, s.loc)
 	var kept []Snapshot
 	var removed []string
 	autos := 0
 	for _, snap := range ix.Snapshots {
 		if snap.Kind.Rotates() {
 			autos++
-			if autos > keep {
+			if !keep[autos-1] {
 				removed = append(removed, snap.ID)
 				continue
 			}

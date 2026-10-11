@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"testing"
 	"time"
 
@@ -101,7 +102,7 @@ func TestPruneKeepsManual(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	removed, err := s.Prune("w", 2)
+	removed, err := s.Prune("w", snapshot.Retention{Last: 2})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -125,6 +126,69 @@ func TestPruneKeepsManual(t *testing.T) {
 	}
 	if ix, _ := s.Get("w"); len(ix.Snapshots) != 2 {
 		t.Errorf("after delete: %d snapshots", len(ix.Snapshots))
+	}
+}
+
+// restic applies the retention rules itself; it must keep exactly what
+// snapshot.Retention, which the zip store uses, keeps.
+func TestPruneMatchesRetention(t *testing.T) {
+	s := newRepo(t)
+	world := testworld.Create(t, t.TempDir(), "w", testworld.Options{})
+	ctx := context.Background()
+	// restic reads --time in the local time zone, and Retention is given
+	// time.Local below, so the test holds wherever it runs.
+	backup := func(worldID string, kind snapshot.Kind, at time.Time) {
+		t.Helper()
+		if _, err := s.r.Run(ctx, world, "backup", "--json", "--exclude", "session.lock",
+			"--tag", tagApp, "--tag", tagWorld+worldID, "--tag", tagKind+string(kind),
+			"--time", at.Format("2006-01-02 15:04:05"), "."); err != nil {
+			t.Fatal(err)
+		}
+	}
+	day := func(month time.Month, d, hour int) time.Time {
+		return time.Date(2026, month, d, hour, 0, 0, 0, time.Local)
+	}
+
+	backup("w", snapshot.KindManual, day(time.July, 1, 12))
+	backup("other", snapshot.KindAuto, day(time.July, 1, 12))
+	var times []time.Time
+	for _, at := range []time.Time{
+		day(time.August, 14, 12), day(time.August, 30, 12), // Sunday
+		day(time.August, 31, 12), day(time.September, 6, 20), // Monday, Sunday
+		day(time.September, 7, 12), day(time.September, 7, 18), // Monday
+		day(time.September, 30, 12), day(time.October, 1, 12),
+		day(time.October, 1, 18), day(time.October, 2, 12),
+	} {
+		kind := snapshot.KindAuto
+		if len(times) == 4 {
+			kind = snapshot.KindPreRestore // safety saves before a restore rotate too
+		}
+		backup("w", kind, at)
+		times = append(times, at)
+	}
+	s.invalidate()
+
+	r := snapshot.Retention{Last: 2, Daily: 3, Weekly: 2, Monthly: 3}
+	want := map[int64]bool{day(time.July, 1, 12).Unix(): true} // the manual save
+	for i, k := range r.Keep(times, time.Local) {
+		if k {
+			want[times[i].Unix()] = true
+		}
+	}
+	removed, err := s.Prune("w", r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ix, _ := s.Get("w")
+	got := map[int64]bool{}
+	for _, snap := range ix.Snapshots {
+		got[snap.CreatedAt.Unix()] = true
+	}
+	if !reflect.DeepEqual(got, want) || len(removed) != 11-len(want) {
+		t.Errorf("restic kept %v, Retention keeps %v; removed %d", got, want, len(removed))
+	}
+	if o, _ := s.Get("other"); len(o.Snapshots) != 1 {
+		t.Error("prune touched another world")
 	}
 }
 

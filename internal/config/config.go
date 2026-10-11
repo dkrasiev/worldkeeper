@@ -29,9 +29,16 @@ type Config struct {
 	StorageDir string `json:"storageDir"`
 	// ExtraSavesDirs are additional "saves" folders to scan.
 	ExtraSavesDirs []string `json:"extraSavesDirs"`
-	// KeepAuto is how many automatic snapshots to keep per world.
-	// Manual snapshots are never rotated.
+	// KeepAuto is how many of the newest automatic snapshots to keep per
+	// world. Manual snapshots are never rotated.
 	KeepAuto int `json:"keepAuto"`
+	// KeepDaily, KeepWeekly and KeepMonthly additionally keep the newest
+	// automatic snapshot of that many recent days, weeks and months, like
+	// restic's --keep-daily/weekly/monthly. A snapshot is kept if any of the
+	// four counts keeps it; 0 turns a count off.
+	KeepDaily   int `json:"keepDaily"`
+	KeepWeekly  int `json:"keepWeekly"`
+	KeepMonthly int `json:"keepMonthly"`
 	// AutoBackup enables the backup-on-world-close hook.
 	AutoBackup bool `json:"autoBackup"`
 	// PollInterval is how often the watcher checks session.lock files.

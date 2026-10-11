@@ -232,13 +232,28 @@ func parseSummary(out []byte) (summary, error) {
 	return summary{}, errors.New("restic backup finished without a snapshot summary")
 }
 
-func (s *Store) Prune(worldID string, keep int) ([]string, error) {
+// Prune leaves the choice to restic's own --keep-* rules, which
+// snapshot.Retention mirrors. They work on restic's snapshot times, which
+// carry the time zone of the computer that made each snapshot.
+func (s *Store) Prune(worldID string, r snapshot.Retention) ([]string, error) {
+	if r.Empty() {
+		return nil, nil
+	}
 	ctx := context.Background()
 	w := tagApp + "," + tagWorld + worldID
-	out, err := s.run(ctx, "", "forget", "--json", "--group-by", "",
-		"--tag", w+","+tagKind+string(snapshot.KindAuto),
-		"--tag", w+","+tagKind+string(snapshot.KindPreRestore),
-		"--keep-last", strconv.Itoa(keep))
+	args := []string{"forget", "--json", "--group-by", "",
+		"--tag", w + "," + tagKind + string(snapshot.KindAuto),
+		"--tag", w + "," + tagKind + string(snapshot.KindPreRestore),
+	}
+	for _, rule := range []struct {
+		flag string
+		n    int
+	}{{"--keep-last", r.Last}, {"--keep-daily", r.Daily}, {"--keep-weekly", r.Weekly}, {"--keep-monthly", r.Monthly}} {
+		if rule.n > 0 {
+			args = append(args, rule.flag, strconv.Itoa(rule.n))
+		}
+	}
+	out, err := s.run(ctx, "", args...)
 	if err != nil {
 		return nil, err
 	}

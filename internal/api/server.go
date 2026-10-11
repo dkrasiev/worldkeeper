@@ -261,6 +261,9 @@ type settings struct {
 	Restic         config.Restic `json:"restic"`
 	ExtraSavesDirs []string      `json:"extraSavesDirs"`
 	KeepAuto       int           `json:"keepAuto"`
+	KeepDaily      int           `json:"keepDaily"`
+	KeepWeekly     int           `json:"keepWeekly"`
+	KeepMonthly    int           `json:"keepMonthly"`
 	AutoBackup     bool          `json:"autoBackup"`
 	PollSeconds    int           `json:"pollSeconds"`
 	CheckUpdates   bool          `json:"checkUpdates"`
@@ -286,6 +289,9 @@ func (s *Server) toSettings(c config.Config) settings {
 		Restic:            c.Restic,
 		ExtraSavesDirs:    c.ExtraSavesDirs,
 		KeepAuto:          c.KeepAuto,
+		KeepDaily:         c.KeepDaily,
+		KeepWeekly:        c.KeepWeekly,
+		KeepMonthly:       c.KeepMonthly,
 		AutoBackup:        c.AutoBackup,
 		PollSeconds:       int(c.PollInterval.Seconds()),
 		CheckUpdates:      c.CheckUpdates,
@@ -350,7 +356,10 @@ func (s *Server) putConfig(w http.ResponseWriter, r *http.Request) {
 		if in.Engine == config.EngineZip && !filepath.IsAbs(in.StorageDir) {
 			return badRequest("storage_not_absolute", "storage folder must be an absolute path")
 		}
-		if in.KeepAuto < 1 {
+		if in.KeepAuto < 0 || in.KeepDaily < 0 || in.KeepWeekly < 0 || in.KeepMonthly < 0 {
+			return badRequest("keep_negative", "snapshot counts cannot be negative")
+		}
+		if in.KeepAuto == 0 && in.KeepDaily == 0 && in.KeepWeekly == 0 && in.KeepMonthly == 0 {
 			return badRequest("keep_auto_min", "keep at least one automatic snapshot")
 		}
 		if in.PollSeconds < 5 {
@@ -390,6 +399,9 @@ func (s *Server) putConfig(w http.ResponseWriter, r *http.Request) {
 		c.Restic = in.Restic
 		c.ExtraSavesDirs = dirs
 		c.KeepAuto = in.KeepAuto
+		c.KeepDaily = in.KeepDaily
+		c.KeepWeekly = in.KeepWeekly
+		c.KeepMonthly = in.KeepMonthly
 		c.AutoBackup = in.AutoBackup
 		c.PollInterval = config.Duration{Duration: time.Duration(in.PollSeconds) * time.Second}
 		c.CheckUpdates = in.CheckUpdates
