@@ -228,6 +228,10 @@ export function SettingsView() {
         <input type="checkbox" checked={form.autoBackup} onChange={(e) => set("autoBackup", e.target.checked)} />
         {t("settings.autoBackup")}
       </label>
+      <label className="check">
+        <input type="checkbox" checked={form.notifications} onChange={(e) => set("notifications", e.target.checked)} />
+        {t("settings.notifications")}
+      </label>
 
       <div className="row">
         <label>

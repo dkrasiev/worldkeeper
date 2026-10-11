@@ -111,6 +111,13 @@ func TestUpdateSettings(t *testing.T) {
 	if rec := do(h, "GET", "/api/config", host, token, ""); !strings.Contains(rec.Body.String(), `"updateChannel":"stable"`) {
 		t.Errorf("an old client without the channel keeps it stable: %s", rec.Body)
 	}
+	if rec := do(h, "GET", "/api/config", host, token, ""); !strings.Contains(rec.Body.String(), `"notifications":true`) {
+		t.Errorf("an old client without notifications keeps them on: %s", rec.Body)
+	}
+	quiet := strings.Replace(body, `}`, `,"notifications":false}`, 1)
+	if rec := do(h, "PUT", "/api/config", host, token, quiet); rec.Code != 200 || !strings.Contains(rec.Body.String(), `"notifications":false`) {
+		t.Errorf("notifications off: %d %s", rec.Code, rec.Body)
+	}
 	dev := strings.Replace(body, `}`, `,"updateChannel":"dev"}`, 1)
 	if rec := do(h, "PUT", "/api/config", host, token, dev); rec.Code != 200 || !strings.Contains(rec.Body.String(), `"updateChannel":"dev"`) {
 		t.Errorf("dev channel: %d %s", rec.Code, rec.Body)

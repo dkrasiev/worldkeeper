@@ -237,6 +237,7 @@ export const en = {
   "settings.passwordFilePlaceholder": "Use instead of the keychain",
   "settings.init": "Initialize repository",
   "settings.autoBackup": "Back up a world automatically when you exit it in the game",
+  "settings.notifications": "Show a notification when a backup fails and when it works again",
   "settings.keepAuto": "Automatic saves to keep per world",
   "settings.keepAutoHint": "Your named saves are never deleted automatically.",
   "settings.poll": "Check every (seconds)",

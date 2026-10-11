@@ -47,6 +47,9 @@ type Config struct {
 	// Language is the one picked in the web UI ("en", "ru"); the tray menu
 	// and notifications use it. Empty follows the OS language.
 	Language string `json:"language"`
+	// Notifications shows a desktop notification when a world's backups
+	// start failing and when they work again.
+	Notifications bool `json:"notifications"`
 }
 
 // Update channels decide which versions the update check offers.
@@ -94,6 +97,7 @@ func Default() Config {
 		Listen:         "127.0.0.1:25599",
 		CheckUpdates:   true,
 		UpdateChannel:  ChannelStable,
+		Notifications:  true,
 	}
 }
 

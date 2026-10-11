@@ -248,6 +248,8 @@ type settings struct {
 	PollSeconds    int           `json:"pollSeconds"`
 	CheckUpdates   bool          `json:"checkUpdates"`
 	UpdateChannel  string        `json:"updateChannel"`
+	// Notifications is nil from clients from before the setting; they keep it.
+	Notifications *bool `json:"notifications,omitempty"`
 
 	ResticPasswordSet bool `json:"resticPasswordSet"` // response only
 	// ResticPassword is write-only: when non-empty it replaces the stored password.
@@ -270,6 +272,7 @@ func (s *Server) toSettings(c config.Config) settings {
 		PollSeconds:       int(c.PollInterval.Seconds()),
 		CheckUpdates:      c.CheckUpdates,
 		UpdateChannel:     c.UpdateChannel,
+		Notifications:     &c.Notifications,
 		ResticPasswordSet: pwSet,
 	}
 }
@@ -366,6 +369,9 @@ func (s *Server) putConfig(w http.ResponseWriter, r *http.Request) {
 		c.PollInterval = config.Duration{Duration: time.Duration(in.PollSeconds) * time.Second}
 		c.CheckUpdates = in.CheckUpdates
 		c.UpdateChannel = in.UpdateChannel
+		if in.Notifications != nil {
+			c.Notifications = *in.Notifications
+		}
 		return nil
 	})
 	respond(w, s.toSettings(cfg), err)
