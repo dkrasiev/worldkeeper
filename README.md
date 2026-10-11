@@ -148,6 +148,8 @@ You need Go 1.26+, Node 24+, and pnpm. On macOS the menu bar icon needs cgo (Xco
 ```bash
 make test     # go vet, go test, TypeScript typecheck, UI tests
 make build    # builds web UI and bin/worldkeeper
+make app      # macOS: dist/Worldkeeper.app for this Mac (releases ship a universal one)
+make install-app  # macOS: copies it to /Applications; quit Worldkeeper first
 ```
 
 For UI work, run the Go server and the Vite dev server side by side:
