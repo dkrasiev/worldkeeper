@@ -91,6 +91,8 @@ func run() error {
 	a := app.New(cfg, secrets.Keyring{}, discovery.HostEnv(), log)
 	a.Version = version
 	if serving {
+		// The tray (and anything else the server shows) uses a.Locale().
+		a.SystemLocale = tray.Locale()
 		// Only the server keeps the activity log; one-off commands would
 		// race it for the file.
 		eventsPath := filepath.Join(filepath.Dir(*cfgPath), "events.json")
@@ -197,7 +199,7 @@ func serve(a *app.App, log *slog.Logger, openUI, useTray bool) error {
 	// when the user picks Quit or ctx is cancelled.
 	if useTray {
 		ctrl := &trayController{app: a, url: url, log: log}
-		if err := tray.Run(ctx, ctrl, tray.Locale(), log); err != nil {
+		if err := tray.Run(ctx, ctrl, log); err != nil {
 			log.Warn("system tray unavailable, running without it", "err", err)
 			<-ctx.Done()
 		}
@@ -261,6 +263,10 @@ func (c *trayController) SetAutoBackup(on bool) error {
 	_, err := c.app.Config.Update(func(cfg *config.Config) error { cfg.AutoBackup = on; return nil })
 	return err
 }
+
+func (c *trayController) Locale() string { return c.app.Locale() }
+
+func (c *trayController) LocaleChanged() <-chan struct{} { return c.app.LocaleChanged() }
 
 func (c *trayController) Status() tray.Status {
 	h := c.app.Health()

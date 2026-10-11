@@ -10,6 +10,6 @@ import (
 // Available is false: the macOS menu bar icon needs cgo (Objective-C).
 const Available = false
 
-func Run(ctx context.Context, c Controller, locale string, log *slog.Logger) error {
+func Run(ctx context.Context, c Controller, log *slog.Logger) error {
 	return ErrUnavailable
 }

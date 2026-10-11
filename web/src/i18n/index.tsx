@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { ApiError } from "../api";
+import { api, ApiError, token } from "../api";
 import { en } from "./en";
 import { ru } from "./ru";
 import type { Dict, MessageKey, Params, Plural } from "./types";
@@ -20,19 +20,35 @@ function isLocale(v: string | null | undefined): v is Locale {
   return !!v && v in dictionaries;
 }
 
-// A saved choice wins; otherwise the first browser language we support.
-function detectLocale(): Locale {
+// The language the user picked in the top bar, if any.
+function savedLocale(): Locale | null {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (isLocale(saved)) return saved;
   } catch {
     /* storage blocked */
   }
+  return null;
+}
+
+// A saved choice wins; otherwise the first browser language we support.
+function detectLocale(): Locale {
+  const saved = savedLocale();
+  if (saved) return saved;
   for (const tag of navigator.languages ?? [navigator.language]) {
     const base = tag.toLowerCase().split("-")[0];
     if (isLocale(base)) return base;
   }
   return "en";
+}
+
+// The tray menu follows a language picked here. A guess from the browser
+// language is not sent: until the user picks, the tray keeps the OS language.
+function tellServer(l: Locale) {
+  if (!token) return;
+  api.setLanguage(l).catch(() => {
+    /* the tray keeps its language until the next pick */
+  });
 }
 
 export interface I18n {
@@ -99,9 +115,17 @@ export function I18nProvider({ children }: { children: ReactNode }) {
           /* remembered for this page only */
         }
         setLocaleState(l);
+        tellServer(l);
       }),
     [locale],
   );
+
+  // Repeat a saved pick on load: it may predate the server remembering it,
+  // and the tray should follow the browser used last.
+  useEffect(() => {
+    const saved = savedLocale();
+    if (saved) tellServer(saved);
+  }, []);
 
   useEffect(() => {
     document.documentElement.lang = locale;

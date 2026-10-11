@@ -263,6 +263,9 @@ export const api = {
     request<{ ok: boolean }>("DELETE", `${w(id)}/snapshots/${encodeURIComponent(snap)}`),
   settings: () => request<Settings>("GET", "/api/config"),
   saveSettings: (s: Settings) => request<Settings>("PUT", "/api/config", s),
+  /** Tells the server the UI language for the tray menu; "" follows the OS language. */
+  setLanguage: (language: string) =>
+    request<{ language: string; locale: string }>("PUT", "/api/language", { language }),
   resticCheck: () => request<ResticStatus>("POST", "/api/restic/check"),
   resticInit: () => request<ResticStatus>("POST", "/api/restic/init"),
   iconUrl: (id: string) => `${w(id)}/icon?token=${encodeURIComponent(token)}`,

@@ -44,6 +44,9 @@ type Config struct {
 	CheckUpdates bool `json:"checkUpdates"`
 	// UpdateChannel is ChannelStable or ChannelDev.
 	UpdateChannel string `json:"updateChannel"`
+	// Language is the one picked in the web UI ("en", "ru"); the tray menu
+	// and notifications use it. Empty follows the OS language.
+	Language string `json:"language"`
 }
 
 // Update channels decide which versions the update check offers.

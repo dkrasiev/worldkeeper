@@ -35,7 +35,7 @@ While running, Worldkeeper sits in the system tray (Windows), the menu bar (macO
 - **Download version …** appears when a newer release is out and opens its page;
 - **Quit Worldkeeper** stops it.
 
-The menu follows the system language (English or Russian). With the tray available, the browser opens on its own only on the very first start. Pass `-no-tray` to run without the icon, for example on a server. On Linux the icon needs a desktop with StatusNotifier support (KDE, or GNOME with the AppIndicator extension), and Worldkeeper runs without it when there is no D-Bus session.
+The menu is in English or Russian. It follows the system language until you pick a language in the web UI's top bar; from then on it follows that pick, switching right away, and keeps it after a restart. With the tray available, the browser opens on its own only on the very first start. Pass `-no-tray` to run without the icon, for example on a server. On Linux the icon needs a desktop with StatusNotifier support (KDE, or GNOME with the AppIndicator extension), and Worldkeeper runs without it when there is no D-Bus session.
 
 The log is written next to the config, in `worldkeeper.log`. The Activity feed (the last 100 events) is kept there too, in `events.json`, so failures from before a restart stay visible.
 
