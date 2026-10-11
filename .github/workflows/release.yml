@@ -23,10 +23,19 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 24
+      # Hand-written notes in docs/releases/<tag>.md replace the generated
+      # commit list; without such a file GoReleaser lists the commits.
+      - name: Release notes
+        id: notes
+        run: |
+          notes="docs/releases/${GITHUB_REF_NAME}.md"
+          if [ -f "$notes" ]; then
+            echo "args=--release-notes=$notes" >> "$GITHUB_OUTPUT"
+          fi
       - uses: goreleaser/goreleaser-action@v7
         with:
           version: "~> v2"
-          args: release --clean
+          args: release --clean ${{ steps.notes.outputs.args }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Optional: lets GoReleaser open the winget-pkgs pull request.

@@ -146,6 +146,8 @@ git push origin v0.1.1
 
 Keep `release/v0.1` for later hotfixes (`v0.1.2`, …). If `main` has nothing unreleased, tag `main` instead.
 
+**Release notes.** Write them by hand in `docs/releases/<tag>.md` (e.g. [`docs/releases/v0.2.0.md`](docs/releases/v0.2.0.md)) and merge that before tagging, so the tag includes the file. The release is then published with these notes. Without a file for the tag, GoReleaser lists the commits instead.
+
 ## License
 
 MIT
