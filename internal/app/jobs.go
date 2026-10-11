@@ -206,6 +206,8 @@ func ErrorCode(err error) string {
 		return "location_replace"
 	case errors.Is(err, snapshot.ErrIDTaken):
 		return "id_taken"
+	case errors.Is(err, ErrNotPlayable):
+		return "not_playable"
 	default:
 		return "internal"
 	}

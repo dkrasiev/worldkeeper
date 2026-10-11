@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -17,6 +18,7 @@ import (
 	"github.com/dkrasiev/worldkeeper/internal/config"
 	"github.com/dkrasiev/worldkeeper/internal/discovery"
 	"github.com/dkrasiev/worldkeeper/internal/secrets"
+	"github.com/dkrasiev/worldkeeper/internal/shell"
 	"github.com/dkrasiev/worldkeeper/internal/testworld"
 )
 
@@ -352,5 +354,24 @@ func TestMoveWorld(t *testing.T) {
 	}
 	if rec := do(h, "GET", "/api/worlds/custom--w", host, token, ""); rec.Code != 200 {
 		t.Errorf("moved world: %d %s", rec.Code, rec.Body)
+	}
+}
+
+func TestOpenAndPlay(t *testing.T) {
+	h, token := newServer(t)
+	host := "127.0.0.1:25599"
+	var opened []string
+	was := shell.Start
+	t.Cleanup(func() { shell.Start = was })
+	shell.Start = func(cmd *exec.Cmd) error { opened = cmd.Args; return nil }
+
+	if rec := do(h, "POST", "/api/worlds/minecraft--w/open", host, token, ""); rec.Code != 200 || len(opened) == 0 {
+		t.Errorf("open: %d %s, started %q", rec.Code, rec.Body, opened)
+	}
+	if rec := do(h, "POST", "/api/worlds/minecraft--w/play", host, token, ""); rec.Code != 400 || !strings.Contains(rec.Body.String(), `"error":"not_playable"`) {
+		t.Errorf("play from the official launcher: %d %s", rec.Code, rec.Body)
+	}
+	if rec := do(h, "GET", "/api/worlds/minecraft--w", host, token, ""); !strings.Contains(rec.Body.String(), `"playable":false`) {
+		t.Errorf("world info: %s", rec.Body)
 	}
 }

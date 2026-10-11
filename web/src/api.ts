@@ -118,6 +118,8 @@ export interface WorldInfo extends WorldData {
   sourceLabel: string;
   savesDir: string; // the saves folder the world is in
   inUse: boolean;
+  /** It can be started from Worldkeeper: a world in a Prism Launcher instance. */
+  playable: boolean;
 }
 
 export type Engine = "zip" | "restic";
@@ -297,6 +299,10 @@ export const api = {
   deleteWorld: (id: string) => request<Job>("DELETE", w(id)),
   /** Starts moving a world into another saves folder; follow it with jobs(). */
   moveWorld: (id: string, savesDir: string) => request<Job>("POST", `${w(id)}/move`, { savesDir }),
+  /** Shows the world's folder in the file manager. */
+  openFolder: (id: string) => request<{ ok: boolean }>("POST", `${w(id)}/open`),
+  /** Starts the world in Prism Launcher (see WorldInfo.playable). */
+  play: (id: string) => request<{ ok: boolean }>("POST", `${w(id)}/play`),
   /** Saves folders a world can be moved or restored into. */
   locations: () => request<Location[]>("GET", "/api/locations"),
   /** Starts a backup; follow it with jobs(). */

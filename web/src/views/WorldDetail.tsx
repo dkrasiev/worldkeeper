@@ -85,6 +85,20 @@ export function WorldDetail({ id, onBack }: { id: string; onBack: () => void }) 
         </div>
         {world && (
           <div className="header-actions">
+            {world.playable && (
+              <button
+                disabled={!!job || world.inUse}
+                title={world.inUse ? t("status.inGame") : undefined}
+                onClick={() =>
+                  run(async () => {
+                    await api.play(id);
+                    return t("world.playing");
+                  })
+                }
+              >
+                {t("world.play")}
+              </button>
+            )}
             <button className="primary" disabled={!!job} onClick={() => setDialog({ type: "save" })}>
               {t("detail.saveNow")}
             </button>
@@ -94,6 +108,7 @@ export function WorldDetail({ id, onBack }: { id: string; onBack: () => void }) 
             <button disabled={!!job} onClick={() => setDialog({ type: "move" })}>
               {t("world.move")}
             </button>
+            <button onClick={() => run(async () => void (await api.openFolder(id)))}>{t("world.openFolder")}</button>
             <button disabled={!!job} onClick={() => setDialog({ type: "deleteWorld" })}>
               {t("world.delete")}
             </button>
