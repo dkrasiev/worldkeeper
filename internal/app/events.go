@@ -37,6 +37,7 @@ const maxEvents = 100
 const (
 	CodeBackupSaved   = "backup_saved"   // params: kind, snapshot
 	CodeBackupFailed  = "backup_failed"  // params: error
+	CodeBackupResumed = "backup_resumed" // after a failure, the world turned out to be saved already
 	CodeRestoreDone   = "restore_done"   // params: snapshot, path
 	CodeRestoreFailed = "restore_failed" // params: error
 	CodeWorldRenamed  = "world_renamed"  // params: from, to
