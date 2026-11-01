@@ -117,7 +117,7 @@ jobs:
           plutil -extract CFBundleShortVersionString raw dist/Worldkeeper.app/Contents/Info.plist
           dist/Worldkeeper.app/Contents/MacOS/worldkeeper version | grep -E '^[0-9]+[.][0-9]+[.][0-9]+-local[.]'
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: Worldkeeper-macOS-${{ github.event.pull_request.head.sha || github.sha }}
           path: ${{ env.ZIP }}

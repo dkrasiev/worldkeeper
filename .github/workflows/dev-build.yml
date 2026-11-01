@@ -49,20 +49,20 @@ jobs:
             echo "Commit ${COMMIT} already has a build (${name}); skipping." >> "$GITHUB_STEP_SUMMARY"
           fi
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         if: steps.existing.outputs.skip != 'true'
         with:
           ref: ${{ env.COMMIT }}
           fetch-depth: 0 # GoReleaser derives the version from tags
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         if: steps.existing.outputs.skip != 'true'
         with:
           go-version-file: go.mod
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         if: steps.existing.outputs.skip != 'true'
         with:
           version: 10
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         if: steps.existing.outputs.skip != 'true'
         with:
           node-version: 24
@@ -88,7 +88,7 @@ jobs:
       # Same build settings as releases (GUI subsystem, version stamp, and
       # the icon and version info from the before hooks), only the
       # windows/amd64 target.
-      - uses: goreleaser/goreleaser-action@v6
+      - uses: goreleaser/goreleaser-action@v7
         if: steps.existing.outputs.skip != 'true'
         with:
           version: "~> v2"
@@ -102,7 +102,7 @@ jobs:
         if: steps.existing.outputs.skip != 'true'
         run: echo "version=$(jq -r .version dist/metadata.json)" >> "$GITHUB_OUTPUT"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: steps.existing.outputs.skip != 'true'
         with:
           name: ${{ steps.existing.outputs.name }}
@@ -141,7 +141,7 @@ jobs:
       group: dev-release-${{ needs.windows-amd64.outputs.branch }}
       cancel-in-progress: true # the newest push wins
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: ${{ needs.windows-amd64.outputs.artifact }}
       - name: Replace the branch's pre-release
