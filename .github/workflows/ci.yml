@@ -35,7 +35,7 @@ jobs:
         if: runner.os == 'macOS'
         run: brew install restic
       # The lock tests take session.lock from a real JVM, like Minecraft.
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: 21
